@@ -61,8 +61,8 @@ class TestWifi(unittest.TestCase):
         self.assertIn("wpasupplicant", auto["packages"])
 
     def test_two_networks(self):
-        auto = rvt.make_config([KEY], HASH, wifi=[("floptusTEST5g", "password1"), ("floptusTEST", "password1")])["autoinstall"]
-        self.assertEqual(set(auto["network"]["wifis"]["wlp0s20f3"]["access-points"]), {"floptusTEST5g", "floptusTEST"})
+        auto = rvt.make_config([KEY], HASH, wifi=[("exampleNet5g", "password1"), ("exampleNet", "password1")])["autoinstall"]
+        self.assertEqual(set(auto["network"]["wifis"]["wlp0s20f3"]["access-points"]), {"exampleNet5g", "exampleNet"})
         self.assertTrue(any("ieee80211_regdom=AU" in c for c in auto["late-commands"]))
 
     def test_bad_passphrase_rejected(self):
