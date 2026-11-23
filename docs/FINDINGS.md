@@ -71,7 +71,7 @@ Updated 2026-11-23 17:00Z; the loop updates this when a headline figure changes.
 - **Uplink:** 33 Mbit/s, so the VM reads the build cache only and never pushes artifacts.
 
 ## RDMA
-- **soft-RoCE between two VMs works** [M]: ib_send_bw 3.48 Gb/s, ib_write_lat ~26 us, rping OK. Good for developing RDMA software now.
+- **soft-RoCE between two VMs works but is slow** [M]: ~3–3.7 Gb/s (1–4 QPs), ib_write_lat ~26 us, rping OK. Plain TCP between the same VMs: 28–34 Gb/s. rxe is CPU-bound software, so use it for correctness only.
 - **Real RDMA** [S]: ConnectX-5/6 SR-IOV VFs over DAC (RoCEv2, MTU 9000). No RDMA NIC in the node.
 
 ## Upstream bugs / gotchas

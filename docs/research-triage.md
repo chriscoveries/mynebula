@@ -158,3 +158,8 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 | soft-RoCE (rxe) between two 26.04 VMs on the virtio NAT bridge | MEASURED | rdma-core/perftest + linux-modules-extra; `rdma link add rxe0 type rxe netdev <if>`: PORT_ACTIVE, MTU 1024. rping 5/5 OK; ib_send_bw 64 KB 3.48 Gb/s; ib_write_lat 2 B typical 25.9 us (avg 33.1 us). Good enough for verbs/app testing before real RNICs |
 | zstd import via HTTP from the bridge host (downloader runs on the frontend, streams to the bridge, qcow2 not re-converted) | VERIFIED | `qemu-img convert -c -o compression_type=zstd` on nebula-7550 -> temporary tailnet-only HTTP -> `oneimage create --path http://...`: image 6 ready, compression zstd kept (801 MB), webclip disk unchanged (119932 MB before/after), a VM booted from it (SSH 47 s from create). ADOPT for new base images |
 | GPU wake sources | IDENTIFIED | Wake log 16:56-17:15Z: OpenNebula PCI probe (every 600 s) and libvirt VM lifecycle events (create/poweroff/resume/terminate), ~11-16 s each; nothing else |
+
+## soft-RoCE vs TCP baseline (tested 2026-11-23 17:25Z)
+| Claim | Status | Evidence / action |
+|---|---|---|
+| rxe is the bottleneck, not the virtio path | MEASURED | Same two 26.04 VMs on the NAT bridge: TCP iperf3 28.3 Gb/s (1 stream) / 33.7 Gb/s (4 streams); rxe ib_send_bw 2.95 Gb/s (1 QP) / 3.74 Gb/s (4 QPs). rxe gets ~10 % of TCP and barely scales with QPs (software, CPU-bound, 30 W cap, MTU 1024). Use rxe for correctness only; performance needs real RNICs (ConnectX-5/6, 25-100 Gb/s, ~1-2 us). Larger MTU (bridge 9000) is a network change, deferred |
