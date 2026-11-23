@@ -47,8 +47,8 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 |---|---|---|
 | Firecracker driver removed (6.10); hypervisors are KVM + LXC | VERIFIED | `remotes/vmm` = kvm, lxc only. Owner: "Firecracker's features, not Firecracker" |
 | LXC driver for lite guests | VERIFIED + constraint | `opennebula-node-lxc` CONFLICTS with `opennebula-node-kvm`, so an LXC host VM is needed on KVM nodes |
-| KSM via ksmtuned | DONE, differently | Kernel 7.0 has the KSM scan-time advisor (no ksmtuned); persisted by tmpfiles |
-| Free page reporting: no toggle, maybe RAW | OPEN | No string in oned; RAW appends a second `<devices>`; test on a throwaway VM |
+| KSM via ksmtuned | DONE, differently | Kernel 7.0 KSM scan-time advisor (no ksmtuned), persisted by tmpfiles; with one VM: 33k pages shared, ~130 MB profit |
+| Free page reporting: no toggle, maybe RAW | DONE | RAW with `VALIDATE=NO` (schema validation rejects it otherwise) gives one memballoon with freePageReporting='on'; fill/free 3 GB: RSS 3.4 GB -> 0.9 GB in 15 s |
 | `MEMORY_RESIZE`/`MAX_MEMORY`, host `RESERVED_MEM` overcommit | OPEN | Needs host swap/zram before overcommitting |
 | Memory snapshots as a warm pool | OPEN | Test resume time |
 | `AUTOSTART` is a host attribute | WRONG (form) | It's the shipped hooks `hooks/autostart/{host,vm}` + `AUTOSTART=YES` on the VM. DONE, survived a host reboot |

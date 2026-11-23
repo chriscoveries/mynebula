@@ -17,7 +17,11 @@ Owner decisions, 2026-11-23. `scripts/apply-host-policy.sh` applies them and is 
 ## Memory: lite, deduplicated guests ("Firecracker features on KVM")
 - **KSM** on, with the kernel scan-time advisor (`advisor_mode=scan-time`, `advisor_max_cpu=10`, target scan 200 s), `use_zero_pages=1`, `smart_scan=1`.
   - Trade-off: KSM shares identical pages across guests, which is a known cross-VM timing side channel. Accepted for this lab.
-- **Guest RAM** is allocated on touch (no hugepage preallocation). Free page reporting is pending: OpenNebula 7.4 has no toggle for it.
+- **Guest RAM** is allocated on touch (no hugepage preallocation).
+- **Free page reporting** on every VM template, so freed guest memory returns to the host:
+  `RAW=[TYPE="kvm", DATA="<devices><memballoon model='virtio' freePageReporting='on'/></devices>", VALIDATE="NO"]`.
+  OpenNebula 7.4 has no toggle; with `VALIDATE=NO`, libvirt ends up with a single balloon device carrying the flag.
+  Measured: a guest that filled and freed 3 GB went from 3.4 GB host RSS back to 0.9 GB within 15 s.
 - **zram in every guest:** `systemd-zram-generator`, zstd, min(RAM/4, 8 GB). Ubuntu cloud images ship neither zram nor swap, and the 24.04 cloud kernel needs `linux-modules-extra` (pull in `linux-image-extra-virtual` so kernel updates keep zram).
 
 ## Storage
