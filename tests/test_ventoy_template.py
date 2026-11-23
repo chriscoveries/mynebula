@@ -46,5 +46,31 @@ class TestVentoyTemplate(unittest.TestCase):
         self.assertIn(["systemctl", "enable", "--now", "--no-block", "mynebula-firstboot.service"], auto["user-data"]["runcmd"])
 
 
+class TestWifi(unittest.TestCase):
+    def test_no_wifi_means_no_network_section(self):
+        self.assertNotIn("network", rvt.make_config([KEY], HASH)["autoinstall"])
+
+    def test_wifi_and_wired_with_metrics(self):
+        auto = rvt.make_config([KEY], HASH, wifi=("HomeNet", "correct horse"))["autoinstall"]
+        net = auto["network"]
+        self.assertEqual(net["wifis"]["wifi"]["access-points"]["HomeNet"]["password"], "correct horse")
+        self.assertLess(net["ethernets"]["wired"]["dhcp4-overrides"]["route-metric"],
+                        net["wifis"]["wifi"]["dhcp4-overrides"]["route-metric"])
+        self.assertIn("wpasupplicant", auto["packages"])
+
+    def test_bad_passphrase_rejected(self):
+        with self.assertRaises(ValueError):
+            rvt.make_config([KEY], HASH, wifi=("HomeNet", "short"))
+
+
+class TestNoSleep(unittest.TestCase):
+    def test_lid_and_sleep_disabled(self):
+        auto = rvt.make_config([KEY], HASH)["autoinstall"]
+        files = {f["path"]: f for f in auto["user-data"]["write_files"]}
+        self.assertIn("HandleLidSwitch=ignore", files["/etc/systemd/logind.conf.d/mynebula-no-sleep.conf"]["content"])
+        self.assertIn(["systemctl", "mask", "sleep.target", "suspend.target", "hibernate.target", "hybrid-sleep.target"],
+                      auto["user-data"]["runcmd"])
+
+
 if __name__ == "__main__":
     unittest.main()
