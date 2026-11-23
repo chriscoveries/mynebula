@@ -78,6 +78,41 @@ OnUnitActiveSec=1min
 [Install]
 WantedBy=timers.target
 """
+# Boot-time power tuning for a laptop hypervisor. Each step is skipped (and logged) if the hardware lacks it.
+POWER_TUNE = """#!/bin/sh
+# mynebula: battery charge 75-80%, Wi-Fi power save off, Bluetooth off, balanced platform profile.
+log() { logger -t mynebula-power "$*"; echo "$*"; }
+for b in /sys/class/power_supply/BAT*; do
+  [ -d "$b" ] || continue
+  if [ -w "$b/charge_control_end_threshold" ]; then
+    # Write end first: some firmware rejects a start above the current end.
+    echo 80 > "$b/charge_control_end_threshold" 2>/dev/null
+    [ -w "$b/charge_control_start_threshold" ] && echo 75 > "$b/charge_control_start_threshold" 2>/dev/null
+    log "$(basename $b): charge limit start=$(cat $b/charge_control_start_threshold 2>/dev/null) end=$(cat $b/charge_control_end_threshold)"
+  else
+    log "$(basename $b): no kernel charge limit; set it in the BIOS (Battery Charge Configuration: Custom 75/80)"
+  fi
+done
+for w in /sys/class/net/wl*; do
+  [ -e "$w" ] || continue
+  iw dev "$(basename $w)" set power_save off 2>/dev/null && log "$(basename $w): Wi-Fi power save off"
+done
+rfkill block bluetooth 2>/dev/null && log "bluetooth blocked"
+if [ -w /sys/firmware/acpi/platform_profile ] && grep -qw balanced /sys/firmware/acpi/platform_profile_choices 2>/dev/null; then
+  echo balanced > /sys/firmware/acpi/platform_profile && log "platform profile balanced"
+fi
+exit 0
+"""
+POWER_SERVICE = """[Unit]
+Description=MyNebula laptop power tuning (charge limit, Wi-Fi power save, Bluetooth)
+After=network-pre.target
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/mynebula-power-tune
+[Install]
+WantedBy=multi-user.target
+"""
 # Laptops and desktops as hypervisors: never suspend, ignore the lid.
 LOGIND = """[Login]
 HandleLidSwitch=ignore
@@ -134,6 +169,10 @@ def make_config(public_keys: list[str], password_hash: str, disk_serial: str | N
          "owner": "root:root", "content": BATTERY_SERVICE},
         {"path": "/etc/systemd/system/mynebula-battery-guard.timer", "permissions": "0644",
          "owner": "root:root", "content": BATTERY_TIMER},
+        {"path": "/usr/local/sbin/mynebula-power-tune", "permissions": "0755",
+         "owner": "root:root", "content": POWER_TUNE},
+        {"path": "/etc/systemd/system/mynebula-power-tune.service", "permissions": "0644",
+         "owner": "root:root", "content": POWER_SERVICE},
         {"path": "/etc/mynebula/tailscale-tags", "permissions": "0644",
          "owner": "root:root", "content": tailscale_tags + "\n"},
     ]
@@ -160,6 +199,7 @@ def make_config(public_keys: list[str], password_hash: str, disk_serial: str | N
             "runcmd": [["systemctl", "mask", "sleep.target", "suspend.target", "hibernate.target", "hybrid-sleep.target"],
                        ["systemctl", "daemon-reload"],
                        ["systemctl", "enable", "--now", "mynebula-battery-guard.timer"],
+                       ["systemctl", "enable", "--now", "mynebula-power-tune.service"],
                        ["systemctl", "enable", "--now", "--no-block", "mynebula-firstboot.service"]],
         },
     }

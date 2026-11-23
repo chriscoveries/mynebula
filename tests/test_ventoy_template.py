@@ -75,6 +75,15 @@ class TestPowerAndGpu(unittest.TestCase):
         self.assertFalse(any("vfio-pci.ids" in c or "driverctl" in c for c in auto["late-commands"]))
 
 
+class TestPowerTune(unittest.TestCase):
+    def test_charge_limit_80(self):
+        auto = rvt.make_config([KEY], HASH)["autoinstall"]
+        files = {f["path"]: f for f in auto["user-data"]["write_files"]}
+        script = files["/usr/local/sbin/mynebula-power-tune"]["content"]
+        self.assertIn("echo 80 > \"$b/charge_control_end_threshold\"", script)
+        self.assertIn(["systemctl", "enable", "--now", "mynebula-power-tune.service"], auto["user-data"]["runcmd"])
+
+
 class TestNoSleep(unittest.TestCase):
     def test_lid_and_sleep_disabled(self):
         auto = rvt.make_config([KEY], HASH)["autoinstall"]
