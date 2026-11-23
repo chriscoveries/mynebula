@@ -3,7 +3,8 @@
 Lab: frontend webclip (OpenNebula 7.4.1); node nebula-7550 (Dell Precision 7550, Ubuntu 26.04 now, 26.10 later per owner).
 Tags: **[M]** measured here · **[S]** from source/docs only, not run here · **[E]** estimate.
 Detail: [research-triage.md](research-triage.md) · Defaults: [host-policy.md](host-policy.md) · LXC: [lxc-host-vm.md](lxc-host-vm.md).
-Updated 2026-11-23 17:00Z; the loop updates this when a headline figure changes.
+Updated 2026-11-23 19:45Z; the loop updates this when a headline figure changes. Work status and to-do list: [deployment-status.md](deployment-status.md).
+**Note:** performance figures taken before 19:33Z were measured with turbo ON (cold start, wake proxy, suspend/resume, CI benchmark, RDMA/TCP, zstd reads). Turbo is now OFF (owner), so re-measure any that matter.
 
 ## Bottom line
 1. **Running today:**
@@ -11,7 +12,7 @@ Updated 2026-11-23 17:00Z; the loop updates this when a headline figure changes.
    - Thin disks, KSM, free page reporting, zram, autostart and power monitoring are all on [M].
 2. **"Firecracker features" on KVM work** [M]: memory dedupe saves GBs, freed RAM returns in seconds, suspend/resume preserves processes, and containers start in seconds.
 3. **GPU, recommended shape:** a small on-demand inference VM that's off when idle [S]. The live passthrough test still needs someone on site.
-4. **Owner decisions:** Tailscale keys, backup target, alert destination, GPU shape, an on-site slot.
+4. **Owner decisions:** the quiet cap (after the sweep), Tailscale keys, backup target, alert destination, GPU shape + wake-proxy graduation, an on-site slot, PR to main.
 
 ## The node
 - **CPU** i7-10750H 6C/12T [M].
@@ -22,11 +23,11 @@ Updated 2026-11-23 17:00Z; the loop updates this when a headline figure changes.
 
 ## Power
 - **Cap:** CPU package capped at 30 W, laptops only [M].
-  - Firmware rewrites the limits: 200 W / 75 W after boot, and the MMIO limit again (66–75 W) after a platform-profile change [M]. A 1-minute timer re-applies 30 W; it silently stopped firing for 2.7 h on 23 Nov (stale unit state) and was fixed. What does the rewriting is under investigation.
+  - thermald (`--adaptive`) is the only writer of the MMIO limit (48–75 W) and resets MSR to 200 W when it starts [M]. A 1-minute watchdog re-applies the MSR cap. It silently stopped firing for 2.7 h on 23 Nov (stale unit state) and was fixed: verify timers by their next run, not by the value they set.
   - The timer has not yet been through a reboot.
 - **The cap binds through the MSR limit alone** [M]: all-core burst mean over seconds 5–20 was 29.97 W with thermald moving the MMIO limit (48–75 W), vs 29.95 W with both pinned at 30 W. So the cap script writes only `intel-rapl:0`, on an `OnCalendar` 1-minute watchdog; the MMIO limit is left to thermald. D1's 40 W peak was a sampler artifact.
 - **Temperature spikes, not average heat:** the package temperature swings ~65↔100 °C within seconds even at 10–15 W, and hits 100 °C at 30 W even with fans on `cool` [M]. This pattern is often a sign of poor heatsink contact; only opening the laptop would tell [E].
-- **Clocks under the cap:** 1–2 busy threads ~3.7 GHz, unaffected; all-core ~2.8 GHz at 29 W [M]. Roughly 15–20 % slower than at 45 W [E].
+- **Turbo OFF since 19:33Z (owner):** max 2.6 GHz, idle 800 MHz [M]. Before that, under the cap: 1–2 threads ~3.7 GHz, all-core ~2.8 GHz at 29 W [M]. Single-thread is now ~30 % slower [E].
 - **Draw:** platform (psys, as firmware reports it) ~5 W idle, 26 W with CI busy; CPU ~3 W idle [M]. Wall power not measured.
 - **Fans:** Dell firmware profile `quiet` (owner's choice) [M]:
   - Fans are off at idle. `balanced` is also 0 rpm at idle, holds ~2,300 rpm under load, and is not cooler: both averaged ~82 °C under CI load and both hit 100 °C and throttle in bursts.
@@ -36,7 +37,7 @@ Updated 2026-11-23 17:00Z; the loop updates this when a headline figure changes.
 - **Monitoring:** CPU package, psys and temperatures go to Prometheus on webclip; Beszel covers the physical hosts [M].
 
 ## Memory ("Firecracker features" on KVM)
-- **KSM** (kernel auto-tuner): 5.0 GB saved; the host used 15 GB for 40 GB allocated (16:37Z, 3 VMs, one since terminated) [M].
+- **KSM** (kernel auto-tuner): 5.0 GB saved; the host used 15 GB for 40 GB allocated (16:37Z, 3 VMs, one since terminated) [M]. Cost: ksmd uses a steady ~10 % CPU, a heat source; under review in the quiet-cap sweep [M].
 - **Free page reporting:** a guest's freed 3 GB returned to the host in 15 s (3.4 → 0.9 GB) [M]. OpenNebula has no switch; it's set with RAW `VALIDATE=NO`, which relies on libvirt merging the device, so re-test after libvirt upgrades.
 - **Thin RAM:** allocated on touch; zram in every guest [M].
 - **Overcommit:** negative `RESERVED_MEM` raises schedulable memory [M]. Not adopted: the host has no swap.

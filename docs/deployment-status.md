@@ -1,23 +1,48 @@
 # Deployment status
 
-Updated: 2026-11-23.
+Updated: 2026-11-23 19:45Z. Facts and measurements: [FINDINGS.md](FINDINGS.md). Evidence per claim: [research-triage.md](research-triage.md).
 
 | Item | Status | Evidence |
 | --- | --- | --- |
-| GitHub repository | Initialised | README and design docs |
-| Ubuntu 26.10 image build | Awaiting test | ISO builder is a starting point; require QEMU BIOS/UEFI proof |
-| Native KVM/libvirt host | Not deployed | No physical target approved |
-| Tailscale zero-touch | Proposed | Official 26.10 package repo; token-handling risk documented |
-| GPU VFIO / IOMMU | Planning | Firmware and PCI grouping unknown |
-| RDMA / peer links | Planning | Cards, firmware and link mode unknown |
-| OpenNebula 7.4 host integration | Blocked by compatibility test | 26.10 not in supported list |
-| webclip frontend | Deferred | Existing services must be preserved |
+| Frontend (OpenNebula 7.4.1 on webclip) | Deployed | oned/FireEdge/OneGate; Prometheus + Alertmanager; Beszel hub |
+| KVM node nebula-7550 (Precision 7550, Ubuntu 26.04, kernel 7.0) | Deployed, ON | Enrolled via autoregister; reboot-tested; host policy applied (scripts/apply-host-policy.sh) |
+| Datastores / clusters | Deployed | Shared-TM node-local DS (base images on root, VM disks on data); cluster per host |
+| CI VM for cifast (ci-2604, 26.04) | Serving | claw's GARM drives it; replaced ci-7550 (terminated) |
+| LXC host VM (lxc-7550) | Deployed, ON | Unprivileged containers, nested autostart tested; docs/lxc-host-vm.md |
+| Memory features (KSM, free page reporting, zram, thin disks) | Deployed | Measured: KSM 5.0 GB saved; FPR 3.4 -> 0.9 GB |
+| Power: 30 W MSR cap, turbo off, Dell quiet profile | Deployed | Cap proven to bind (29.97 W); quiet cap per host pending |
+| GPU passthrough (RTX 3000) | Planned, needs on-site | PCI monitoring + UEFI verified; live bind not done |
+| Inference wake proxy | Prototype | scripts/inference-wake/; not production-ready |
+| Installer stick (Ventoy/YUMI) | Needs v9 | See known issues |
+| RDMA | Research + soft-RoCE only | No RDMA NIC |
 
-Agent must replace planned statuses only with evidence from tests or actual machine runs.
+## In flight
+- **Quiet-cap sweep** on nebula-7550: bursty and saturated loads, cap 25/20/15 W, turbo off, KSM throttled, 15-min soak. The owner then picks the cap.
 
-## Initial CI
+## To do
+- **Ours:**
+  - an EPP `balance_power` step in the sweep;
+  - a Prometheus fan-start counter (proof of "quieter");
+  - add `no_turbo` to apply-host-policy.sh;
+  - keep or delete test image 6 (26.04 zstd);
+  - test the `onevm create` denial for the proxy user;
+  - read how the autostart-vm hook treats an operator poweroff;
+  - report the 7.4 exporter `SchedulerDown` bug upstream;
+  - remove the stale ci-7550 tailnet device;
+  - stick v9 (VentoyPart early-command test, Wi-Fi interface fix);
+  - tell cifast the final cap AND that turbo is permanently off (their benchmark ran with turbo on).
+- **Owner:**
+  - pick the quiet cap;
+  - Tailscale key expiry (nebula-7550, ci-2604, lxc-7550) + revoke the stick key;
+  - restic backup target;
+  - alert destination;
+  - GPU shape + wake-proxy graduation;
+  - an on-site slot for the GPU bind;
+  - PR this branch to main.
+- **On-site session:** GPU bind test, plus idle power with vfio vs host drivers. One scripted session with a dead-man reboot, at a time agreed with cifast.
 
-The 2026-11-23 commit `5c4e5caa` passed GitHub Actions unit, syntax and compile checks. Boot validation, firmware cases and a live install have not been tested.
+## Next-reboot checklist (nebula-7550; needs a time agreed with cifast)
+Cap watchdog fires (`list-timers` NEXT) and MSR = 30 W; `no_turbo=1`; profile `quiet`; RAPL `energy_uj` readable; psys exporter timer; KSM settings; PCI filter; ci-2604 and lxc-7550 come back by themselves (autostart).
 
 ## Known issues (2026-11-23)
 - **Wi-Fi:** `scripts/render-ventoy-template.py` lists five Wi-Fi interface names (`WIFI_IFACES`). netplan apply fails when a named interface is absent (NETWORK_FAIL in the installer on the Precision 7550). The 7550 was installed with a config naming only its real interfaces (wlo1/eno2). Fix before the stick is used on another machine.

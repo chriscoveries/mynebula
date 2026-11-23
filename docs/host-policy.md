@@ -3,9 +3,13 @@
 Owner decisions, 2026-11-23. `scripts/apply-host-policy.sh` applies them and is safe to re-run on any node.
 
 ## Power
-- **Laptop-class hosts** (a battery is present): CPU package capped at **30 W** with RAPL (both `intel-rapl:0` and `intel-rapl-mmio:0`, long and short term).
-  - A 1-minute timer (`mynebula-cpu-cap.timer`) re-applies it, because thermald and firmware rewrite the limits after boot (seen on a Dell Precision 7550: 200 W / 75 W at boot).
-  - Measured on an i7-10750H: 1–2 busy threads are unaffected (~3.7 GHz at 14–20 W); all-core settles at ~2.8 GHz at 29 W.
+- **Laptop-class hosts** (a battery is present). Owner's goal: QUIET, not cool.
+- **CPU package cap: 30 W, written to the MSR interface only** (`intel-rapl:0`, long and short term).
+  - Proven to bind on its own: an all-core burst averaged 29.97 W with thermald moving the MMIO limit, vs 29.95 W with both pinned.
+  - thermald (`--adaptive`, Dell DPTF) owns the MMIO limit; leave it alone. It also resets MSR to 200 W when it starts.
+  - So a watchdog timer re-applies MSR every minute (`OnCalendar=*:*:00`; the service is stopped before enabling; install fails if the timer has no next run).
+  - The per-host value is pending the quiet-cap sweep.
+- **Turbo off** (`intel_pstate/no_turbo=1`, persisted via `/etc/tmpfiles.d/mynebula-no-turbo.conf`). Owner 2026-11-23: turbo bursts spike the package ~65→100 °C within seconds and start the fans. Max 2.6 GHz; idle floor 800 MHz (powersave governor).
 - **Servers and desktops** (no battery): no cap. Set `CPU_CAP_W` explicitly if wanted.
 - **Laptops also get:**
   - charge held at 75–80 %;
@@ -17,6 +21,7 @@ Owner decisions, 2026-11-23. `scripts/apply-host-policy.sh` applies them and is 
 ## Memory: lite, deduplicated guests ("Firecracker features on KVM")
 - **KSM** on, with the kernel scan-time advisor (`advisor_mode=scan-time`, `advisor_max_cpu=10`, target scan 200 s), `use_zero_pages=1`, `smart_scan=1`.
   - Trade-off: KSM shares identical pages across guests, which is a known cross-VM timing side channel. Accepted for this lab.
+- **KSM cost:** ksmd uses a steady ~10 % CPU with `advisor_max_cpu=10`, a constant heat source; under review in the quiet-cap sweep.
 - **Guest RAM** is allocated on touch (no hugepage preallocation).
 - **Free page reporting** on every VM template, so freed guest memory returns to the host:
   `RAW=[TYPE="kvm", DATA="<devices><memballoon model='virtio' freePageReporting='on'/></devices>", VALIDATE="NO"]`.
@@ -38,7 +43,7 @@ Owner decisions, 2026-11-23. `scripts/apply-host-policy.sh` applies them and is 
 - **Name resolution:** the node resolves the frontend by name through an `/etc/hosts` entry with its tailnet IP.
 
 ## Lifecycle
-- **Autostart:** the OpenNebula autostart hooks (`autostart-host`, `autostart-vm`) are installed on the frontend, and VMs and templates carry `AUTOSTART=YES`. Tested: a VM came back by itself after a host reboot.
+- **Autostart:** the OpenNebula autostart hooks (`autostart-host`, `autostart-vm`) are installed on the frontend, and VMs and templates carry `AUTOSTART=YES`. **Exception:** the on-demand inference VM must NOT carry it (the wake proxy powers it on). Tested: a VM came back by itself after a host reboot.
 
 ## Containers
 - **LXC is preferred** for trusted Linux services.
