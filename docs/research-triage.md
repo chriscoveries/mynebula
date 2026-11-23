@@ -79,7 +79,7 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 | LXC host VM in a 26.04 guest needs AppArmor userns relief + cgroup v2 `Delegate=yes` + subuid/subgid | OPEN | First check `lxcrc` for privileged vs unprivileged. Before enrolling ANY second host, put nebula-7550 + DS 101/102 in their own cluster: those shared-TM paths exist only on that node |
 
 ## Verified runtime notes
-- **30 W cap drift:** exactly one rewrite in 40 min (200 W / 75 W / 135 W right after boot), so it's a boot-time reset and the 1-minute timer is enough.
+- **30 W cap drift: CORRECTION (17:58Z).** The earlier "one rewrite in 40 min, timer is enough" was wrong. The timer had NOT fired since 15:16Z: the old service instance was still active with RemainAfterExit, so the timer never re-scheduled. The MMIO limit was rewritten again (66 W, then 75/135 W) after the platform profile change at ~17:10Z. During the 17:10-17:58Z gap the CPU package peaked at 23 W, so the cap was never tested then. Fixed by resetting the service; root cause of the rewrites is under investigation (sys-devin-rt).
 - **`scripts/apply-host-policy.sh`:** ran end to end on nebula-7550 (2026-11-23); idempotent; live values unchanged.
 
 ## Round 4 (2026-11-23 15:52Z; LXC host VM built and tested; advisor consulted)

@@ -22,7 +22,7 @@ Updated 2026-11-23 17:00Z; the loop updates this when a headline figure changes.
 
 ## Power
 - **Cap:** CPU package capped at 30 W, laptops only [M].
-  - The limit was reset to 200 W / 75 W once after boot; a 1-minute timer re-applies it [M].
+  - Firmware rewrites the limits: 200 W / 75 W after boot, and the MMIO limit again (66–75 W) after a platform-profile change [M]. A 1-minute timer re-applies 30 W; it silently stopped firing for 2.7 h on 23 Nov (stale unit state) and was fixed. What does the rewriting is under investigation.
   - The timer has not yet been through a reboot.
 - **Clocks under the cap:** 1–2 busy threads ~3.7 GHz, unaffected; all-core ~2.8 GHz at 29 W [M]. Roughly 15–20 % slower than at 45 W [E].
 - **Draw:** platform (psys, as firmware reports it) ~5 W idle, 26 W with CI busy; CPU ~3 W idle [M]. Wall power not measured.
