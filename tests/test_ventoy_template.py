@@ -1,0 +1,50 @@
+import importlib.util
+import pathlib
+import unittest
+import yaml
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location("rvt", ROOT / "scripts" / "render-ventoy-template.py")
+rvt = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(rvt)
+
+KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOtestkeyonly test@example"
+HASH = "$6$salt$hash"
+
+
+class TestVentoyTemplate(unittest.TestCase):
+    def test_generic_is_interactive_storage_and_parses(self):
+        text = rvt.render(rvt.make_config([KEY], HASH))
+        self.assertTrue(text.startswith("#cloud-config\n"))
+        auto = yaml.safe_load(text)["autoinstall"]
+        self.assertEqual(auto["interactive-sections"], ["storage"])
+        self.assertNotIn("match", auto["storage"]["layout"])
+        self.assertFalse(auto["ssh"]["allow-pw"])
+
+    def test_serial_mode_is_unattended(self):
+        auto = rvt.make_config([KEY], HASH, disk_serial="Samsung_SSD_860_S3Z1NB0K123456")["autoinstall"]
+        self.assertNotIn("interactive-sections", auto)
+        self.assertEqual(auto["storage"]["layout"]["match"]["serial"], "Samsung_SSD_860_S3Z1NB0K123456")
+
+    def test_rejects_glob_serial_and_bad_key(self):
+        with self.assertRaises(ValueError):
+            rvt.make_config([KEY], HASH, disk_serial="Samsung*")
+        with self.assertRaises(ValueError):
+            rvt.make_config([KEY], HASH, tailscale_key="not-a-key")
+        with self.assertRaises(ValueError):
+            rvt.make_config([KEY], "plaintext")
+
+    def test_tailscale_key_only_when_given(self):
+        paths = lambda auto: [f["path"] for f in auto["user-data"]["write_files"]]
+        self.assertNotIn("/etc/mynebula/tailscale-auth.key", paths(rvt.make_config([KEY], HASH)["autoinstall"]))
+        auto = rvt.make_config([KEY], HASH, tailscale_key="tskey-auth-abc123-XYZ")["autoinstall"]
+        f = [x for x in auto["user-data"]["write_files"] if x["path"] == "/etc/mynebula/tailscale-auth.key"][0]
+        self.assertEqual(f["permissions"], "0600")
+
+    def test_firstboot_enabled(self):
+        auto = rvt.make_config([KEY], HASH)["autoinstall"]
+        self.assertIn(["systemctl", "enable", "--now", "--no-block", "mynebula-firstboot.service"], auto["user-data"]["runcmd"])
+
+
+if __name__ == "__main__":
+    unittest.main()
