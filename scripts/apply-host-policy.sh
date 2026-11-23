@@ -110,4 +110,61 @@ fi
 systemctl daemon-reload; systemctl enable --now mynebula-psys-prom.timer
 systemctl try-restart opennebula-node-exporter.service || true
 log "psys exporter: mynebula_rapl_psys_joules_total"
+
+# 7. Fan start/on-time counters for hosts with dell_smm hwmon (quiet-host proof metric;
+#    2 s poll -> node_exporter textfile; Prometheus side: increase(mynebula_fan_starts_total[1h]))
+if grep -l '^dell_smm$' /sys/class/hwmon/hwmon*/name >/dev/null 2>&1; then
+  install -d -m 0755 /var/lib/mynebula-fan-counter
+  cat > /usr/local/sbin/mynebula-fan-counter <<'F'
+#!/bin/sh
+# mynebula-fan-counter: poll dell_smm fan RPM every ~2 s and expose monotonic
+# counters via the node_exporter textfile collector:
+#   mynebula_fan_starts_total{fan}      off->on transitions
+#   mynebula_fan_on_seconds_total{fan}  seconds with rpm > 0
+# Counters persist in /var/lib/mynebula-fan-counter so they survive restarts.
+D=/var/lib/node_exporter/textfile
+S=/var/lib/mynebula-fan-counter
+H=$(grep -l '^dell_smm$' /sys/class/hwmon/hwmon*/name 2>/dev/null | head -1 | xargs -r dirname)
+[ -n "$H" ] || { echo "mynebula-fan-counter: no dell_smm hwmon" >&2; exit 1; }
+mkdir -p "$S"
+
+last=0
+while :; do
+  now=$(date +%s)
+  dt=$((now - last)); last=$now
+  [ "$dt" -lt 1 ] && dt=1
+  [ "$dt" -gt 10 ] && dt=2
+  out=$D/fan.prom.$$
+  {
+    echo '# HELP mynebula_fan_starts_total Fan off->on transitions (dell_smm).'
+    echo '# TYPE mynebula_fan_starts_total counter'
+    echo '# HELP mynebula_fan_on_seconds_total Seconds with fan rpm > 0 (dell_smm).'
+    echo '# TYPE mynebula_fan_on_seconds_total counter'
+    for f in "$H"/fan*_input; do
+      [ -r "$f" ] || continue
+      fan=$(basename "$f" _input)
+      rpm=$(cat "$f" 2>/dev/null); case $rpm in ''|*[!0-9]*) rpm=0;; esac
+      prev=$(cat "$S/$fan.prev" 2>/dev/null); case $prev in ''|*[!0-9]*) prev=-1;; esac
+      starts=$(cat "$S/$fan.starts" 2>/dev/null); case $starts in ''|*[!0-9]*) starts=0;; esac
+      onsec=$(cat "$S/$fan.onsec" 2>/dev/null); case $onsec in ''|*[!0-9]*) onsec=0;; esac
+      [ "$prev" = 0 ] && [ "$rpm" -gt 0 ] && starts=$((starts+1))
+      [ "$rpm" -gt 0 ] && onsec=$((onsec+dt))
+      echo "$rpm" > "$S/$fan.prev"
+      echo "$starts" > "$S/$fan.starts"
+      echo "$onsec" > "$S/$fan.onsec"
+      echo "mynebula_fan_starts_total{fan=\"$fan\"} $starts"
+      echo "mynebula_fan_on_seconds_total{fan=\"$fan\"} $onsec"
+    done
+  } > "$out" && mv "$out" "$D/fan.prom" || rm -f "$out"
+  sleep 2
+done
+F
+  chmod 0755 /usr/local/sbin/mynebula-fan-counter
+  printf '[Unit]\nDescription=MyNebula fan start/on-time counters for node_exporter\nAfter=multi-user.target\n[Service]\nType=simple\nExecStart=/usr/local/sbin/mynebula-fan-counter\nRestart=always\nRestartSec=5\n[Install]\nWantedBy=multi-user.target\n' > /etc/systemd/system/mynebula-fan-counter.service
+  systemctl daemon-reload
+  systemctl enable --now mynebula-fan-counter.service
+  log "fan counters: mynebula_fan_starts_total mynebula_fan_on_seconds_total"
+else
+  log "no dell_smm hwmon: no fan counters"
+fi
 log "done"

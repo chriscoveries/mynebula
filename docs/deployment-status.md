@@ -11,7 +11,7 @@ Updated: 2026-11-23 21:25Z. Facts and measurements: [FINDINGS.md](FINDINGS.md). 
 | LXC host VM (lxc-7550) | Deployed, ON | Unprivileged containers, nested autostart tested; docs/lxc-host-vm.md |
 | Memory features (KSM, free page reporting, zram, thin disks) | Deployed | Measured: KSM 5.0 GB saved; FPR 3.4 -> 0.9 GB |
 | Power: 30 W MSR cap, turbo off, Dell quiet profile | Deployed | Cap proven to bind (29.97 W); turbo off in apply-host-policy.sh (laptops); quiet cap per host pending |
-| Fan-start metric | Deployed | Exact 2 s node counter + rules (scripts/fan-counter/, monitoring/fan-rules.yml); positive count unverified (fans stayed off in the check) |
+| Fan-start metric | Deployed | Exact 2 s node counter + rules (apply-host-policy.sh section 7, monitoring/fan-rules.yml); positive count unverified (fans stayed off in the check) |
 | GPU passthrough (RTX 3000) | Planned, needs on-site | PCI monitoring + UEFI verified; live bind not done |
 | Inference wake proxy | Prototype | scripts/inference-wake/; not production-ready |
 | Installer stick (Ventoy/YUMI) | Needs v9 | See known issues |
@@ -24,7 +24,6 @@ Updated: 2026-11-23 21:25Z. Facts and measurements: [FINDINGS.md](FINDINGS.md). 
 
 ## To do
 - **Ours:**
-  - fold the fan counter into apply-host-policy.sh (run on the node to prove no drift);
   - keep or delete test image 6 (26.04 zstd);
   - test the `onevm create` denial for the proxy user;
   - report the 7.4 exporter `SchedulerDown` bug upstream;

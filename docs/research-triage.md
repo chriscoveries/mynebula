@@ -211,5 +211,5 @@ All steps: `quiet` profile, cap on MSR only, thermald owns MMIO. fan-on = share 
 |---|---|---|
 | A VM without AUTOSTART is never touched by either hook | VERIFIED [S] | remotes/hooks/autostart/vm 130-136 (read by seat); host hook 139-144 (lane's reading) |
 | An operator `onevm poweroff` is not undone, even with AUTOSTART=YES | VERIFIED [S] | vm hook resumes only when the last history ACTION is `monitor` (141-146) |
-| `monitor` covers any active VM the monitor finds off, possibly a shutdown from inside the guest | OPEN, runtime test running | If true, an AUTOSTART VM can't stay off by shutting itself down (inference VM, ci-2604) |
+| `monitor` covers any active VM the monitor finds off, including a guest-side shutdown | VERIFIED [M] | Throwaway VM, AUTOSTART=YES: ACPI power-button shutdown recorded ACTION=monitor and the hook resumed it ~94 s later; operator poweroff recorded `poweroff` and stayed off |
 | `AUTOSTART=always` | QUIRK [S] | honoured by the host hook, not by the vm hook (true/yes only) |

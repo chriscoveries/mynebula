@@ -36,7 +36,7 @@ Updated 2026-11-23 21:25Z; the loop updates this when a headline figure changes.
   - Manual PWM is exposed but not used (unsafe unattended).
 - **Quiet setup (adopted 23 Nov):** `quiet` + turbo off + 20 W cap + KSM slowed + EPP balance_power. Silent at idle; under saturated load the fans run ~73 % of the time at 20 W (25 W: 94 %, 15 W: 55 %, 12 W: 0 % for 4 min at ~40 % less CPU) [M, one pass]. Table in research-triage.md.
 - **Monitoring:** CPU package, psys and temperatures go to Prometheus on webclip; Beszel covers the physical hosts [M].
-- **Fan counter:** a 2 s poller on the node exports `mynebula_fan_starts_total` and `mynebula_fan_on_seconds_total`; Prometheus rules give starts and fan-on seconds per hour (scripts/fan-counter/, monitoring/fan-rules.yml). It matched a 1 Hz reference exactly over 10 min, but the fans stayed off, so a positive count is not yet verified [M].
+- **Fan counter:** a 2 s poller on the node exports `mynebula_fan_starts_total` and `mynebula_fan_on_seconds_total`; Prometheus rules give starts and fan-on seconds per hour (scripts/apply-host-policy.sh section 7, monitoring/fan-rules.yml). It matched a 1 Hz reference exactly over 10 min, but the fans stayed off, so a positive count is not yet verified [M].
 
 ## Memory ("Firecracker features" on KVM)
 - **KSM** (kernel auto-tuner): 5.0 GB saved; the host used 15 GB for 40 GB allocated (16:37Z, 3 VMs, one since terminated) [M]. Cost with the auto-tuner: ksmd ~10 % CPU, a heat source; laptops now use a slow fixed scan (~0.2 % CPU) [M].
@@ -54,6 +54,7 @@ Updated 2026-11-23 21:25Z; the loop updates this when a headline figure changes.
 
 ## Lifecycle
 - **Autostart:** OpenNebula autostart hooks + `AUTOSTART=YES`. A node reboot brought a VM back by itself (tested once); an LXC host VM reboot brought its container back (~3 min) [M].
+- **AUTOSTART VMs can't stay off by themselves:** a shutdown from inside the guest (or any stop the monitor detects) is resumed by the hook ~94 s later; `onevm poweroff` stays off [M]. Applies to ci-2604 and lxc-7550.
 
 ## LXC
 - **Placement:** runs in an LXC host VM, because `opennebula-node-lxc` conflicts with node-kvm; enrolled as a second host in its own cluster [M].
