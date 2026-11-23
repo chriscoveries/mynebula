@@ -96,3 +96,13 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 | `QCOW2_OPTIONS="-o compression_type=zstd"` on shared TM | OPEN | Measure space saved and read cost on a throwaway image |
 | Beyond: OneGate, VM groups/affinity, quotas, host hooks, OneFlow | OPEN (ranked) | Host hooks first (GPU D3cold) |
 | patch_datasources.rb adds a libvirt exporter target for every host | FIXED LOCALLY | It raised a critical InstanceDown for lxc-7550:9926 (no libvirt on an LXC host). Removed that target from prometheus.yml; re-running patch_datasources.rb re-adds it, so remove it again after any re-run |
+
+## GPU increment 1 (2026-11-23 16:15Z; tested 16:17-16:25Z; advisor consulted)
+| Claim | Status | Evidence / action |
+|---|---|---|
+| PCI passthrough = one PCI entry per function (DOMAIN/BUS/SLOT/FUNCTION), `managed='yes'` hostdev; libvirt binds vfio at VM start, so no boot-time binding (LibVirtDriverKVM.cc:2366-2396) | VERIFIED (source) / OPEN (runtime) | The live bind is deferred: unbinding nouveau risks a host hang. Needs someone on site and a time agreed with cifast |
+| All 4 functions of IOMMU group 1 must go to the same VM; OpenNebula has no group awareness | VERIFIED (source) | Template must list 01:00.0-.3 |
+| PCI monitoring off by default (`:filter: '0:0'`) | DONE | kvm-probes.d/pci.conf filter `'10de:*'` (orig kept). Hand-run probe lists 10de:1f36 at 01:00.0. `onehost show` listing: OPEN until the next system-probe cycle (SYSTEM_HOST=600 s) |
+| The probe wakes the GPU | MEASURED | `lspci` takes the GPU D3cold -> D0; back to D3cold in about 8 s. Runs every 600 s, so about 1 % awake. Residency baseline 16:22Z (active 58.7 s, suspended 4135.6 s); re-measure next round |
+| UEFI (q35 + OVMF) under OpenNebula on the node | VERIFIED | `FIRMWARE=/usr/share/OVMF/OVMF_CODE_4M.fd`, Ubuntu 26.04 guest booted via EFI |
+| A VM with an assigned PCI device has all RAM pinned (no balloon / free page reporting) | OPEN (Devin to confirm) | Design: GPU in a small dedicated inference VM, not the 16 GB LXC host VM |
