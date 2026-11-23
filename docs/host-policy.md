@@ -30,6 +30,7 @@ Owner decisions, 2026-11-23. `scripts/apply-host-policy.sh` applies them and is 
 - **Base images:** image datastore `base-images`, with `TM_MAD=shared` and `BRIDGE_LIST=<node>`, symlinked to `/srv/one-images` on the node root.
 - **VM disks:** system datastore `system-<node>`, with `TM_MAD=shared`, on the data partition.
 - **Why not `TM_MAD=local`:** its clone always copies from the frontend, so it can't serve an image that lives only on the node.
+- **Base image import (zstd):** convert on the node (`qemu-img convert -c -O qcow2 -o compression_type=zstd`), serve it over a temporary tailnet-only HTTP server on the node, and `oneimage create --path http://<node>:<port>/<file>`. The bytes never land on the frontend, and zstd reads ~2.3x faster than Ubuntu's zlib at the same size.
 - **Thin provisioning:** OS disks are qcow2 overlays on the base image, volatile disks are sparse raw files, and `discard=unmap` is passed through to guests.
 
 ## Networking

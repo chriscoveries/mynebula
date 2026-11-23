@@ -41,8 +41,7 @@ Updated 2026-11-23 17:00Z; the loop updates this when a headline figure changes.
 - **Datastores:** `TM_MAD=shared`, node-local, in their own cluster; base images on the node root, VM disks on the data partition [M]. `TM_MAD=local` always copies from the frontend [M].
 - **Thin:** OS disks are qcow2 overlays (a 40 GB disk ≈ 0.2 GB used); runner disks are sparse [M].
 - **Compression:** Ubuntu cloud images ship zlib-compressed. zstd: same size, 2 GB sequential read 0.44 s vs 1.01 s (one run) [M].
-  - A candidate for new imports only, because existing images back live VMs.
-  - The import flow is untested.
+  - **Adopted for new imports**: convert on the node, serve over a temporary tailnet HTTP server, register; the bytes never touch webclip; verified with a VM boot [M]. Existing images back live VMs, so they aren't touched.
 
 ## Lifecycle
 - **Autostart:** OpenNebula autostart hooks + `AUTOSTART=YES`. A node reboot brought a VM back by itself (tested once); an LXC host VM reboot brought its container back (~3 min) [M].
@@ -55,7 +54,7 @@ Updated 2026-11-23 17:00Z; the loop updates this when a headline figure changes.
 ## GPU (Quadro RTX 3000)
 - **Idle:** with host drivers it's fully off (D3cold) most of the time [M].
   - OpenNebula's PCI probe wakes it ~16 s per run (every 600 s).
-  - Total awake time: 4.8 % over a busy 30 min; the other wake sources are not yet identified [M].
+  - Total awake time: 4.8 % over a busy 30 min. The wakes come from that probe and from VM lifecycle events (create/poweroff/start/terminate, ~11 s each); nothing else [M].
 - **OpenNebula sees all 4 functions** (one IOMMU group) [M]. UEFI guests boot [M].
 - **Passthrough (not run here):**
   - All 4 functions to one VM; libvirt binds vfio at VM start, no reboot [S].
@@ -72,7 +71,8 @@ Updated 2026-11-23 17:00Z; the loop updates this when a headline figure changes.
 - **Uplink:** 33 Mbit/s, so the VM reads the build cache only and never pushes artifacts.
 
 ## RDMA
-- **Researched only** [S]: soft-RoCE between VMs is testable now; the real path is ConnectX-5/6 SR-IOV over DAC. No RDMA NIC in the node.
+- **soft-RoCE between two VMs works** [M]: ib_send_bw 3.48 Gb/s, ib_write_lat ~26 us, rping OK. Good for developing RDMA software now.
+- **Real RDMA** [S]: ConnectX-5/6 SR-IOV VFs over DAC (RoCEv2, MTU 9000). No RDMA NIC in the node.
 
 ## Upstream bugs / gotchas
 - **SchedulerDown:** the 7.4 exporter checks a removed `opennebula-scheduler.service`, so the alert fires forever (disabled locally) [M].
@@ -93,5 +93,3 @@ Updated 2026-11-23 17:00Z; the loop updates this when a headline figure changes.
 - **Unverified:**
   - Guest-initiated S3 with a GPU attached (power state while suspended).
   - The cap timer across a reboot.
-  - The zstd import flow.
-  - soft-RoCE.
