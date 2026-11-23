@@ -24,9 +24,14 @@ Updated 2026-11-23 17:00Z; the loop updates this when a headline figure changes.
 - **Cap:** CPU package capped at 30 W, laptops only [M].
   - Firmware rewrites the limits: 200 W / 75 W after boot, and the MMIO limit again (66–75 W) after a platform-profile change [M]. A 1-minute timer re-applies 30 W; it silently stopped firing for 2.7 h on 23 Nov (stale unit state) and was fixed. What does the rewriting is under investigation.
   - The timer has not yet been through a reboot.
+- **Does the cap bind with thermald moving the MMIO limit?** Unproven: steady-state readings topped out at 31.6–32.3 W; one all-core burst averaged ~33 W at 100 °C (noisy sampler). A clean A/B test is pending [M].
 - **Clocks under the cap:** 1–2 busy threads ~3.7 GHz, unaffected; all-core ~2.8 GHz at 29 W [M]. Roughly 15–20 % slower than at 45 W [E].
 - **Draw:** platform (psys, as firmware reports it) ~5 W idle, 26 W with CI busy; CPU ~3 W idle [M]. Wall power not measured.
-- **Fans:** Dell firmware profile `quiet` (owner's choice): 0 rpm at idle, 74 °C under light load. `cool` ran 3800 rpm for only 2 °C less. Manual PWM is exposed but not used (unsafe unattended) [M].
+- **Fans:** Dell firmware profile `quiet` (owner's choice) [M]:
+  - Fans are off at idle. `balanced` is also 0 rpm at idle, holds ~2,300 rpm under load, and is not cooler: both averaged ~82 °C under CI load and both hit 100 °C and throttle in bursts.
+  - `cool` runs ~3,800 rpm.
+  - Nothing in Linux writes the fans; the firmware cycles them. thermald (`--adaptive`) is the only writer of the MMIO power limit.
+  - Manual PWM is exposed but not used (unsafe unattended).
 - **Monitoring:** CPU package, psys and temperatures go to Prometheus on webclip; Beszel covers the physical hosts [M].
 
 ## Memory ("Firecracker features" on KVM)
