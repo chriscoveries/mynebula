@@ -70,3 +70,14 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 | opennebula-node-exporter runs with no flags | VERIFIED (source) | psys needs a textfile collector |
 | node_exporter has no hwmon collector; temps need a textfile collector | WRONG | Default hwmon collector already exports 92 series (coretemp, NVMe) |
 | restic backup DS bundled (SFTP default or S3); a tailnet SFTP target works | VERIFIED (source) | Candidate default; pick a target (claw/firestar disk) |
+
+## Round 3 (2026-11-23 15:41Z; tested 15:45Z; advisor consulted)
+| Claim | Status | Evidence / action |
+|---|---|---|
+| Negative `RESERVED_MEM` allows scheduler overcommit (HostShare.cc:162-195, no sign check) | VERIFIED, NOT ADOPTED | `RESERVED_MEM=-8388608` (KB) took MAX_MEM from 64.16 to 72.54 GB; reverted. Prerequisites: host zram/swap (the node has none) and real demand (12 of 61 GB allocated). Accounting only: the kernel OOM-killer is the real limit |
+| restic backup DS bundled (`DS_MAD=restic`, SFTP/S3, bundled binaries, incremental) | OPEN | Needs a target box (owner decision). Test on a throwaway VM only; repo password stays out of git |
+| LXC host VM in a 26.04 guest needs AppArmor userns relief + cgroup v2 `Delegate=yes` + subuid/subgid | OPEN | First check `lxcrc` for privileged vs unprivileged. Before enrolling ANY second host, put nebula-7550 + DS 101/102 in their own cluster: those shared-TM paths exist only on that node |
+
+## Verified runtime notes
+- **30 W cap drift:** exactly one rewrite in 40 min (200 W / 75 W / 135 W right after boot), so it's a boot-time reset and the 1-minute timer is enough.
+- **`scripts/apply-host-policy.sh`:** ran end to end on nebula-7550 (2026-11-23); idempotent; live values unchanged.
