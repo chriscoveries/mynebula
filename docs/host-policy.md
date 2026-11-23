@@ -44,7 +44,7 @@ Owner decisions, 2026-11-23. `scripts/apply-host-policy.sh` applies them and is 
 - **Name resolution:** the node resolves the frontend by name through an `/etc/hosts` entry with its tailnet IP.
 
 ## Lifecycle
-- **Autostart:** the OpenNebula autostart hooks (`autostart-host`, `autostart-vm`) are installed on the frontend, and VMs and templates carry `AUTOSTART=YES`. **Exception:** the on-demand inference VM must NOT carry it (the wake proxy powers it on). Tested: a VM came back by itself after a host reboot.
+- **Autostart:** the OpenNebula autostart hooks (`autostart-host`, `autostart-vm`) are installed on the frontend, and VMs and templates carry `AUTOSTART=YES`. **Exception:** the on-demand inference VM must NOT carry it. The proxy's `onevm poweroff` is not undone by the hook (it resumes only VMs the monitor found off), but a stop the monitor detects (possibly a shutdown from inside the guest; test pending) would be resumed. Tested: a VM came back by itself after a host reboot.
 
 ## Containers
 - **LXC is preferred** for trusted Linux services.

@@ -27,7 +27,6 @@ Updated: 2026-11-23 21:25Z. Facts and measurements: [FINDINGS.md](FINDINGS.md). 
   - fold the fan counter into apply-host-policy.sh (run on the node to prove no drift);
   - keep or delete test image 6 (26.04 zstd);
   - test the `onevm create` denial for the proxy user;
-  - read how the autostart-vm hook treats an operator poweroff;
   - report the 7.4 exporter `SchedulerDown` bug upstream;
   - remove the stale ci-7550 tailnet device;
   - stick v9 (VentoyPart early-command test, Wi-Fi interface fix);

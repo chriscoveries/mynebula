@@ -205,3 +205,11 @@ All steps: `quiet` profile, cap on MSR only, thermald owns MMIO. fan-on = share 
 - **Directional only:** F2-F4 ran back to back while the chassis was cooling, so part of the KSM/EPP improvement may be order effects.
 - **Fully silent option (not adopted):** 12 W gave 0 % fan-on for 4 min saturated. It costs ~40 % CPU vs 20 W (1T limited to 1.8 GHz) and is unproven beyond 4 min (76 C peak is a few C under where the fans started at 15 W).
 - **Correction:** earlier figures for 15/20/25 W (43/64/70 %) came from a rough parse including settle time; use this table.
+
+## Autostart hooks (OpenNebula 7.4.1, read 2026-11-23 22:18Z)
+| Claim | Status | Evidence / action |
+|---|---|---|
+| A VM without AUTOSTART is never touched by either hook | VERIFIED [S] | remotes/hooks/autostart/vm 130-136 (read by seat); host hook 139-144 (lane's reading) |
+| An operator `onevm poweroff` is not undone, even with AUTOSTART=YES | VERIFIED [S] | vm hook resumes only when the last history ACTION is `monitor` (141-146) |
+| `monitor` covers any active VM the monitor finds off, possibly a shutdown from inside the guest | OPEN, runtime test running | If true, an AUTOSTART VM can't stay off by shutting itself down (inference VM, ci-2604) |
+| `AUTOSTART=always` | QUIRK [S] | honoured by the host hook, not by the vm hook (true/yes only) |
