@@ -81,3 +81,17 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 ## Verified runtime notes
 - **30 W cap drift:** exactly one rewrite in 40 min (200 W / 75 W / 135 W right after boot), so it's a boot-time reset and the 1-minute timer is enough.
 - **`scripts/apply-host-policy.sh`:** ran end to end on nebula-7550 (2026-11-23); idempotent; live values unchanged.
+
+## Round 4 (2026-11-23 15:52Z; LXC host VM built and tested; advisor consulted)
+| Claim | Status | Evidence / action |
+|---|---|---|
+| LXC driver is unprivileged by default (opennebula_vm.rb:243) | VERIFIED, with a catch | True for the driver, but the Linux Containers marketplace templates set `LXC_UNPRIVILEGED="false"`. Set "yes" on every exported template (done on template 2) |
+| AppArmor `apparmor_restrict_unprivileged_userns=1` blocks LXC in a guest | NOT APPLICABLE | Root starts the containers; unprivileged worked with the restriction on (uid_map 0 600100001 65536) |
+| cgroup v2 delegation needed | NOT NEEDED | Limits enforced: `memory.max` = MEMORY, `cpu.weight` from CPU. `free` in a container shows host-VM memory (no lxcfs), display only |
+| CONTEXT works in LXC | VERIFIED | Hostname, SSH key and static IP applied |
+| Nested restart (LXC host VM reboot) | VERIFIED | The autostart hook resumed the container about 3 min after `lxc-7550` rebooted; Tailscale and lxcbr0 came back |
+| lxc-net DHCP overlapping the OpenNebula address range | FIXED | `LXC_DHCP_RANGE=10.0.3.2,10.0.3.99` (the image's netplan also takes a DHCP lease; it now lands outside 100-199) |
+| Prometheus rules.yml contents; Alertmanager routing | OPEN | Check rule_files is loaded; Alertmanager has no receiver yet (owner: where should alerts go?) |
+| `QCOW2_OPTIONS="-o compression_type=zstd"` on shared TM | OPEN | Measure space saved and read cost on a throwaway image |
+| Beyond: OneGate, VM groups/affinity, quotas, host hooks, OneFlow | OPEN (ranked) | Host hooks first (GPU D3cold) |
+| patch_datasources.rb adds a libvirt exporter target for every host | NOTE | lxc-7550:9926 shows down (no libvirt there; exporter disabled). Harmless |
