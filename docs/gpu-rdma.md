@@ -15,3 +15,7 @@ The base packages include `driverctl`, `pciutils`, `numactl`, `rdma-core`, `ibve
 References:
 - https://docs.opennebula.io/7.4/product/cluster_configuration/pci_passthrough_sriov/host_configuration/
 - https://docs.opennebula.io/7.4/product/cluster_configuration/pci_passthrough_sriov/nvidia_gpu_passthrough/
+
+## Quadro RTX 3000 Mobile investigation
+
+See [RTX 3000M qualification](rtx3000m-qualification.md) for the read-only device/driver checks, Tensor Core speed-select feasibility, safer efficiency tuning options, and passthrough/reset concerns. Nothing in the base hypervisor install enables GPU unlocks or clock offsets.
