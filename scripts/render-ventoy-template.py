@@ -192,6 +192,9 @@ def make_config(public_keys: list[str], password_hash: str, disk_serial: str | N
         "identity": {"hostname": PLACEHOLDER, "username": "hyper", "password": password_hash},
         "ssh": {"install-server": True, "allow-pw": False, "authorized-keys": public_keys},
         "updates": "security",
+        # YUMI/Ventoy maps the whole stick partition as dm "VentoyPart"; curtin's probe crashes on it
+        # (ValueError: Invalid dep_id (disk-dm-1)). Early-commands run before block probing.
+        "early-commands": ["dmsetup remove VentoyPart || true"],
         "late-commands": [HOSTNAME_CMD, GRUB_CMD],
         "user-data": {
             "package_update": True,

@@ -48,7 +48,7 @@ if [[ ! -e "$STATE/tailscale-done" ]]; then
          --advertise-tags="$TAGS" --accept-dns=false --ssh=false; then
       # Key not allowed to use the tag: join untagged; the frontend also enrols nebula-* hosts.
       echo "tailscale up with $TAGS failed; retrying untagged" >&2
-      tailscale up --auth-key="file:$CONF/tailscale-auth.key" --hostname="$(hostname)" \
+      tailscale up --reset --auth-key="file:$CONF/tailscale-auth.key" --hostname="$(hostname)" \
         --accept-dns=false --ssh=false
     fi
     touch "$STATE/tailscale-done"

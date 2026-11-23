@@ -91,6 +91,12 @@ class TestPowerTune(unittest.TestCase):
         self.assertIn(["systemctl", "enable", "--now", "mynebula-power-tune.service"], auto["user-data"]["runcmd"])
 
 
+class TestVentoyProbe(unittest.TestCase):
+    def test_ventoypart_removed_before_probe(self):
+        auto = rvt.make_config([KEY], HASH)["autoinstall"]
+        self.assertIn("dmsetup remove VentoyPart || true", auto["early-commands"])
+
+
 class TestNoSleep(unittest.TestCase):
     def test_lid_and_sleep_disabled(self):
         auto = rvt.make_config([KEY], HASH)["autoinstall"]
