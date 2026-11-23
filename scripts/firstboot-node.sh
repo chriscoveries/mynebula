@@ -14,6 +14,13 @@ CODENAME="${VERSION_CODENAME:?}"
 STATE=/var/lib/mynebula
 CONF=/etc/mynebula
 install -d -m 0755 "$STATE" /etc/apt/keyrings
+# Hostname: the installer's late-command sets it, but cloud-init may have reset it from identity.
+if [[ "$(hostname)" == nebula-node ]]; then
+  NIC=$(for d in /sys/class/net/*; do [[ -e $d/device ]] && basename "$d"; done | sort | head -1)
+  H="nebula-$(tr -d ':' < "/sys/class/net/$NIC/address" | tail -c 7)"
+  hostnamectl set-hostname "$H"
+  sed -i "s/\bnebula-node\b/$H/g" /etc/hosts
+fi
 echo "MyNebula firstboot start: $(date -u +%FT%TZ) host=$(hostname)"
 
 # Wait for working DNS + HTTPS (the unit already orders after network-online).
@@ -37,8 +44,13 @@ if [[ ! -e "$STATE/tailscale-done" ]]; then
   systemctl enable --now tailscaled
   if [[ -s "$CONF/tailscale-auth.key" ]]; then
     TAGS=$(cat "$CONF/tailscale-tags" 2>/dev/null || echo tag:nebula-node)
-    tailscale up --auth-key="file:$CONF/tailscale-auth.key" --hostname="$(hostname)" \
-      --advertise-tags="$TAGS" --accept-dns=false --ssh=false
+    if ! tailscale up --auth-key="file:$CONF/tailscale-auth.key" --hostname="$(hostname)" \
+         --advertise-tags="$TAGS" --accept-dns=false --ssh=false; then
+      # Key not allowed to use the tag: join untagged; the frontend also enrols nebula-* hosts.
+      echo "tailscale up with $TAGS failed; retrying untagged" >&2
+      tailscale up --auth-key="file:$CONF/tailscale-auth.key" --hostname="$(hostname)" \
+        --accept-dns=false --ssh=false
+    fi
     touch "$STATE/tailscale-done"
   else
     echo 'No Tailscale key on this node: run "tailscale up" by hand' >&2

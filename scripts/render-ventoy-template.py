@@ -45,13 +45,13 @@ HOSTNAME_CMD = (
     "N=$(for d in /sys/class/net/*; do [ -e $d/device ] && basename $d; done | sort | head -1); "
     "S=$(tr -d ':' < /sys/class/net/$N/address | tail -c 7); H=nebula-$S; "
     "echo $H > /target/etc/hostname; "
-    "sed -i \"s/\\bnebula-node\\b/$H/g\" /target/etc/hosts"
+    "sed -i \"s/\\bnebula-node\\b/$H/g\" /target/etc/hosts || true"
 )
 PLACEHOLDER = "nebula-node"
 # IOMMU on (GPU passthrough later), console blanks after 2 min (laptop screen/heat).
 GRUB_CMD = (
     "sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=\"/&intel_iommu=on iommu=pt consoleblank=120 /' /target/etc/default/grub && "
-    "curtin in-target --target=/target -- update-grub"
+    "curtin in-target --target=/target -- update-grub || true"
 )
 # A laptop's battery is a free UPS: shut down cleanly before it runs flat.
 BATTERY_GUARD = """#!/bin/sh

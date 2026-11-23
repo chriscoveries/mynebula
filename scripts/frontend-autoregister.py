@@ -25,7 +25,9 @@ def main() -> int:
         hosts = [hosts]
     known = {h.get("NAME") for h in hosts}
     for peer in status.get("Peer", {}).values():
-        if TAG not in (peer.get("Tags") or []) or not peer.get("Online"):
+        tagged = TAG in (peer.get("Tags") or [])
+        named = peer.get("HostName", "").startswith("nebula-") and peer.get("OS") == "linux"
+        if not (tagged or named) or not peer.get("Online"):
             continue
         name = peer["DNSName"].rstrip(".")
         if name in known:
