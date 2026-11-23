@@ -57,3 +57,16 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 | Backups: restic backup DS | OPEN | Candidate default; needs a target |
 | Terraform provider maintained; no Packer, no GARM/Actions provider | VERIFIED (doc) | CI = cifast's GARM drives Incus inside a KVM VM (done: ci-7550) |
 | PCI monitoring, TOPOLOGY pinning, host hooks, alert rules, OneKE | OPEN / SKIP | Alert rules next; OneKE at 2+ nodes |
+
+## Round 2 (source-cited, OpenNebula one-7.4 tree)
+| Claim | Status | Evidence / action |
+|---|---|---|
+| The KVM driver never emits `<memballoon>`; RAW is written at domain top level (LibVirtDriverKVM.cc:2782-2796), so a second `<devices>` | VERIFIED (source) | True as source facts |
+| ...therefore freePageReporting is impossible in 7.4 | WRONG (practice) | libvirt 12 merges the RAW `<devices>`: the live domain has ONE memballoon with freePageReporting='on'; 3.4 GB -> 0.9 GB RSS measured. Depends on libvirt merge behaviour: re-test after libvirt upgrades |
+| LXC driver has snapshot/save/restore/migrate actions; needs cgroup v2 delegation, AppArmor, bindfs in a guest | VERIFIED (source) / OPEN (test) | LXC host VM pending owner go |
+| `MEMORY_MAX` + `MEMORY_RESIZE_MODE=HOTPLUG` = DIMM hotplug (not virtio-mem); otherwise balloon `currentMemory` | VERIFIED (source) | Candidate for overcommit with free page reporting |
+| `RESERVED_MEM` host/cluster attribute; negative handling unverified | OPEN | Test before overcommitting; host zram/swap first |
+| Clone-from-running-memory not exposed by oned | VERIFIED | SKIP; use system snapshots, measure resume |
+| opennebula-node-exporter runs with no flags | VERIFIED (source) | psys needs a textfile collector |
+| node_exporter has no hwmon collector; temps need a textfile collector | WRONG | Default hwmon collector already exports 92 series (coretemp, NVMe) |
+| restic backup DS bundled (SFTP default or S3); a tailnet SFTP target works | VERIFIED (source) | Candidate default; pick a target (claw/firestar disk) |
