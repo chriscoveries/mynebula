@@ -181,3 +181,8 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 | Make thermald the single writer (static thermal-conf.xml) | CLOSED, not needed | |
 | `balanced` cooler than `quiet` | REFUTED | Both ~82 C avg under CI load; both hit 100 C and throttle in bursts; balanced holds ~2300 rpm |
 | Quiet cap (owner goal: quieter) | IN PROGRESS | Sweep: bursty and saturated loads, cap 25/20/15 W, turbo on/off, 15-min soak |
+
+## Fan-start metric (sys-devin2-rt 19:45Z; advisor-validated)
+| Claim | Status | Evidence / action |
+|---|---|---|
+| Recording rule `node:fan_starts:per_hour` (monitoring/fan-rules.yml) counts fan starts | LOWER BOUND only | 1-min sampling of 15 s scrapes misses sub-minute pulsing: in test A's window, 1 real start in the 1 Hz log, 0 by the rule's method. Not proof of "quieter". An exact counter (node-side 2 s poller -> textfile counters `fan_starts_total` + `fan_on_seconds_total`, `increase()`) is planned after the sweep. Re-running patch_datasources.rb drops the rule_files line |

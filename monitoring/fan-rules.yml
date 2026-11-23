@@ -1,0 +1,16 @@
+# mynebula: fan off->on edges per hour, LOWER BOUND (1-min sampling of 15 s scrapes).
+# Misses sub-minute pulsing: on 2026-11-23 a 5-min window with 1 real start (1 Hz log) read 0.
+# An exact counter needs a node-side poller (textfile counters + increase()); planned.
+# NOTE: re-running OpenNebula's patch_datasources.rb regenerates prometheus.yml and drops the 'fan-rules.yml' rule_files line.
+groups:
+- name: FanNoise
+  rules:
+  - record: node:fan_starts:per_hour
+    expr: |
+      sum by (instance, one_host_id, chip, sensor) (
+        count_over_time(
+          ((node_hwmon_fan_rpm{chip=~".*dell.*"} > 0)
+           and on(instance, chip, sensor)
+           (node_hwmon_fan_rpm{chip=~".*dell.*"} offset 1m <= 0))[1h:1m]
+        )
+      )
