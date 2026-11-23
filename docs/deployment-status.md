@@ -1,6 +1,6 @@
 # Deployment status
 
-Updated: 2026-11-23 19:45Z. Facts and measurements: [FINDINGS.md](FINDINGS.md). Evidence per claim: [research-triage.md](research-triage.md).
+Updated: 2026-11-23 20:10Z. Facts and measurements: [FINDINGS.md](FINDINGS.md). Evidence per claim: [research-triage.md](research-triage.md).
 
 | Item | Status | Evidence |
 | --- | --- | --- |
@@ -10,20 +10,20 @@ Updated: 2026-11-23 19:45Z. Facts and measurements: [FINDINGS.md](FINDINGS.md). 
 | CI VM for cifast (ci-2604, 26.04) | Serving | claw's GARM drives it; replaced ci-7550 (terminated) |
 | LXC host VM (lxc-7550) | Deployed, ON | Unprivileged containers, nested autostart tested; docs/lxc-host-vm.md |
 | Memory features (KSM, free page reporting, zram, thin disks) | Deployed | Measured: KSM 5.0 GB saved; FPR 3.4 -> 0.9 GB |
-| Power: 30 W MSR cap, turbo off, Dell quiet profile | Deployed | Cap proven to bind (29.97 W); quiet cap per host pending |
+| Power: 30 W MSR cap, turbo off, Dell quiet profile | Deployed | Cap proven to bind (29.97 W); turbo off in apply-host-policy.sh (laptops); quiet cap per host pending |
+| Fan-start metric | Partial | Prometheus rule `node:fan_starts:per_hour` (lower bound, monitoring/fan-rules.yml); exact 2 s node counter queued |
 | GPU passthrough (RTX 3000) | Planned, needs on-site | PCI monitoring + UEFI verified; live bind not done |
 | Inference wake proxy | Prototype | scripts/inference-wake/; not production-ready |
 | Installer stick (Ventoy/YUMI) | Needs v9 | See known issues |
 | RDMA | Research + soft-RoCE only | No RDMA NIC |
 
 ## In flight
-- **Quiet-cap sweep** on nebula-7550: bursty and saturated loads, cap 25/20/15 W, turbo off, KSM throttled, 15-min soak. The owner then picks the cap.
+- **Quiet-cap sweep** on nebula-7550 (sys-devin-rt). Done: bursty turbo-off, KSM-throttled, EPP balance_power, 25 W. Running: 20 W, then 15 W and a 15-min soak. Then advisor validation, and the owner picks the cap.
+- **Joint firestar window, 24 Nov 10:05Z:** cccc 0.4.60 fork candidate (cwflab), then set B package updates + reboot, only on the owner's GO and a green claw group-restore rehearsal. nebula-7550/webclip are unaffected.
 
 ## To do
 - **Ours:**
-  - an EPP `balance_power` step in the sweep;
-  - a Prometheus fan-start counter (proof of "quieter");
-  - add `no_turbo` to apply-host-policy.sh;
+  - an exact fan-start counter (node-side 2 s poller; queued after the sweep);
   - keep or delete test image 6 (26.04 zstd);
   - test the `onevm create` denial for the proxy user;
   - read how the autostart-vm hook treats an operator poweroff;

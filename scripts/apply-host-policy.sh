@@ -40,6 +40,13 @@ else
   log "no battery and CPU_CAP_W unset: no CPU cap"
 fi
 
+# 1b. No turbo on laptops (owner policy: quiet over fast; runtime value + tmpfiles persistence)
+if is_laptop && [ -w /sys/devices/system/cpu/intel_pstate/no_turbo ]; then
+  printf 'w /sys/devices/system/cpu/intel_pstate/no_turbo - - - - 1\n' > /etc/tmpfiles.d/mynebula-no-turbo.conf
+  systemd-tmpfiles --create /etc/tmpfiles.d/mynebula-no-turbo.conf || log "no_turbo tmpfiles unsupported"
+  log "no_turbo=$(cat /sys/devices/system/cpu/intel_pstate/no_turbo)"
+fi
+
 # 2. RAPL energy readable for the Prometheus node exporter
 echo 'SUBSYSTEM=="powercap", ACTION=="add", RUN+="/bin/chmod 0444 /sys%p/energy_uj"' > /etc/udev/rules.d/60-rapl-readable.rules
 chmod 0444 /sys/class/powercap/intel-rapl*/energy_uj /sys/class/powercap/intel-rapl*/intel-rapl*/energy_uj 2>/dev/null || true
