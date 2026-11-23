@@ -1,5 +1,7 @@
 # MyNebula
 
+**Findings so far:** [docs/FINDINGS.md](docs/FINDINGS.md) (concise, tagged measured/source/estimate).
+
 Documentation-first project for reproducible, low-touch installation of Ubuntu 26.10 KVM hypervisor nodes, with a future OpenNebula 7.4 management frontend on `webclip`.
 
 **Status: initial design and installer work in progress; no hardware deployed.**

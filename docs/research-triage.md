@@ -144,3 +144,9 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 | TSC marked unstable after restore | NOTE | Still happens; harmless once the clock is synced (kvm-clock takes over) |
 | Suspend (not poweroff) as the idle state for a GPU VM | DOUBTFUL | QEMU normally blocks saving a VM with a physical vfio device (migration blocker). Ask Devin to confirm from source; if so, shape B idles by poweroff |
 | Power glue: hooks are notification-only; scheduled actions are clock-based; no scale-to-zero in CE | VERIFIED (source) | A small front proxy is needed (state check -> `onevm resume`/`deploy` -> forward; idle timer -> suspend/poweroff) |
+
+## GPU VM suspend (research 2026-11-23 16:58Z)
+| Claim | Status | Evidence / action |
+|---|---|---|
+| `onevm suspend` fails for a VM with a vfio GPU: QEMU migration blocker + libvirt hostdev migration check; OpenNebula `kvm/save` is plain `virsh save` with no PCI pre-check | VERIFIED (source) | The idle state for the inference VM is poweroff. Cold start ~30–60 s [E]. Runtime confirmation on site |
+| Guest-initiated S3 may let the passed-through GPU reach a low-power state | OPEN | One on-site test: host `power_state` of 01:00.0 while the guest is suspended |

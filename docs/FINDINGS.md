@@ -1,0 +1,96 @@
+# mynebula findings (concise)
+
+Lab: frontend webclip (OpenNebula 7.4.1); node nebula-7550 (Dell Precision 7550, Ubuntu 26.04 now, 26.10 later per owner).
+Tags: **[M]** measured here · **[S]** from source/docs only, not run here · **[E]** estimate.
+Detail: [research-triage.md](research-triage.md) · Defaults: [host-policy.md](host-policy.md) · LXC: [lxc-host-vm.md](lxc-host-vm.md).
+Updated 2026-11-23 17:00Z; the loop updates this when a headline figure changes.
+
+## Bottom line
+1. **Running today:**
+   - One laptop node serving cifast's CI VM (ci-2604) and an LXC host (lxc-7550).
+   - Thin disks, KSM, free page reporting, zram, autostart and power monitoring are all on [M].
+2. **"Firecracker features" on KVM work** [M]: memory dedupe saves GBs, freed RAM returns in seconds, suspend/resume preserves processes, and containers start in seconds.
+3. **GPU, recommended shape:** a small on-demand inference VM that's off when idle [S]. The live passthrough test still needs someone on site.
+4. **Owner decisions:** Tailscale keys, backup target, alert destination, GPU shape, an on-site slot.
+
+## The node
+- **CPU** i7-10750H 6C/12T [M].
+- **RAM** 2×32 GB DDR4 SODIMM (Samsung M471A4G43AB1-CWE, rated 3200 CL22) running at **2933 MT/s**, dual channel [M]. Timings at 2933 were not read; JEDEC suggests ~CL21 ≈ 14 ns [E] (`decode-dimms` would confirm). 2 of 4 slots free; 128 GB max [M].
+- **NVMe** 1 TB: 32 GB root, 920 GB VM data [M].
+- **GPU** Quadro RTX 3000 Mobile 6 GB [M].
+- **Network:** Wi-Fi main link; Tailscale; uplink 33 Mbit/s, downlink 232 Mbit/s [M].
+
+## Power
+- **Cap:** CPU package capped at 30 W, laptops only [M].
+  - The limit was reset to 200 W / 75 W once after boot; a 1-minute timer re-applies it [M].
+  - The timer has not yet been through a reboot.
+- **Clocks under the cap:** 1–2 busy threads ~3.7 GHz, unaffected; all-core ~2.8 GHz at 29 W [M]. Roughly 15–20 % slower than at 45 W [E].
+- **Draw:** platform (psys, as firmware reports it) ~5 W idle, 26 W with CI busy; CPU ~3 W idle [M]. Wall power not measured.
+- **Monitoring:** CPU package, psys and temperatures go to Prometheus on webclip; Beszel covers the physical hosts [M].
+
+## Memory ("Firecracker features" on KVM)
+- **KSM** (kernel auto-tuner): 5.0 GB saved; the host used 15 GB for 40 GB allocated (16:37Z, 3 VMs, one since terminated) [M].
+- **Free page reporting:** a guest's freed 3 GB returned to the host in 15 s (3.4 → 0.9 GB) [M]. OpenNebula has no switch; it's set with RAW `VALIDATE=NO`, which relies on libvirt merging the device, so re-test after libvirt upgrades.
+- **Thin RAM:** allocated on touch; zram in every guest [M].
+- **Overcommit:** negative `RESERVED_MEM` raises schedulable memory [M]. Not adopted: the host has no swap.
+- **Suspend/resume:** suspend 3.5 s; resume 7–15 s to RUNNING, **~23 s until SSH answers**; processes survive [M]. Needs qemu-guest-agent: without it, ~2 min [M].
+- **Firecracker/LXD drivers:** not in 7.4, which has only KVM + LXC [M].
+
+## Storage
+- **Datastores:** `TM_MAD=shared`, node-local, in their own cluster; base images on the node root, VM disks on the data partition [M]. `TM_MAD=local` always copies from the frontend [M].
+- **Thin:** OS disks are qcow2 overlays (a 40 GB disk ≈ 0.2 GB used); runner disks are sparse [M].
+- **Compression:** Ubuntu cloud images ship zlib-compressed. zstd: same size, 2 GB sequential read 0.44 s vs 1.01 s (one run) [M].
+  - A candidate for new imports only, because existing images back live VMs.
+  - The import flow is untested.
+
+## Lifecycle
+- **Autostart:** OpenNebula autostart hooks + `AUTOSTART=YES`. A node reboot brought a VM back by itself (tested once); an LXC host VM reboot brought its container back (~3 min) [M].
+
+## LXC
+- **Placement:** runs in an LXC host VM, because `opennebula-node-lxc` conflicts with node-kvm; enrolled as a second host in its own cluster [M].
+- **What works:** unprivileged containers (marketplace templates default to privileged, so override them), memory/CPU limits enforced, start in seconds [M].
+- **Device passthrough** via `LXC_PROFILES` works (proven with /dev/fuse) [M].
+
+## GPU (Quadro RTX 3000)
+- **Idle:** with host drivers it's fully off (D3cold) most of the time [M].
+  - OpenNebula's PCI probe wakes it ~16 s per run (every 600 s).
+  - Total awake time: 4.8 % over a busy 30 min; the other wake sources are not yet identified [M].
+- **OpenNebula sees all 4 functions** (one IOMMU group) [M]. UEFI guests boot [M].
+- **Passthrough (not run here):**
+  - All 4 functions to one VM; libvirt binds vfio at VM start, no reboot [S].
+  - A GPU VM has all its RAM pinned (no balloon, free page reporting or KSM) [S].
+  - In a guest the GPU likely reaches only D3hot [S].
+- **Recommended shape:** a small on-demand inference VM serving an API, off when idle, so the GPU returns to D3cold [S].
+  - It needs a wake proxy (not built).
+  - A VM holding the GPU **cannot be suspended** (QEMU vfio migration blocker; libvirt hostdev; OpenNebula `save` = `virsh save`) [S]. So idle = **poweroff**, with a cold start of ~30–60 s (boot ~20–30 s + 7B model load ~5–15 s) [E].
+  - Untested idea: guest-initiated suspend-to-RAM might let the GPU drop to a low-power state without OpenNebula involvement.
+  - The GPU-in-LXC-host alternative would keep the GPU awake [S].
+
+## CI
+- **ci-2604:** Ubuntu 26.04; 8 vCPU / 12 GB / 40 GB + 80 GB raw. Serves cifast's runners via claw's GARM; benchmark 68.6 s vs 67.8 s on the old VM (per cifast).
+- **Uplink:** 33 Mbit/s, so the VM reads the build cache only and never pushes artifacts.
+
+## RDMA
+- **Researched only** [S]: soft-RoCE between VMs is testable now; the real path is ConnectX-5/6 SR-IOV over DAC. No RDMA NIC in the node.
+
+## Upstream bugs / gotchas
+- **SchedulerDown:** the 7.4 exporter checks a removed `opennebula-scheduler.service`, so the alert fires forever (disabled locally) [M].
+- **patch_datasources.rb** adds a libvirt target for LXC hosts too, giving a false InstanceDown [M].
+- **lxc-net DHCP** overlaps the OpenNebula address range unless narrowed [M].
+- **Installer stick:**
+  - YUMI's `VentoyPart` crashes the storage probe [M].
+  - Naming absent Wi-Fi interfaces makes netplan fail [M].
+  - Both fixes are in the templates but not yet tested from the stick.
+
+## Open
+- **Owner:**
+  - Tailscale: untagged devices with expiring keys; old key to revoke.
+  - Backup (restic) target.
+  - Alert destination.
+  - GPU shape.
+  - An on-site slot for the GPU test.
+- **Unverified:**
+  - Guest-initiated S3 with a GPU attached (power state while suspended).
+  - The cap timer across a reboot.
+  - The zstd import flow.
+  - soft-RoCE.
