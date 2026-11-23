@@ -106,3 +106,19 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 | The probe wakes the GPU | MEASURED | `lspci` takes the GPU D3cold -> D0; back to D3cold in about 8 s. Runs every 600 s, so about 1 % awake. Residency baseline 16:22Z (active 58.7 s, suspended 4135.6 s); re-measure next round |
 | UEFI (q35 + OVMF) under OpenNebula on the node | VERIFIED | `FIRMWARE=/usr/share/OVMF/OVMF_CODE_4M.fd`, Ubuntu 26.04 guest booted via EFI |
 | A VM with an assigned PCI device has all RAM pinned (no balloon / free page reporting) | OPEN (Devin to confirm) | Design: GPU in a small dedicated inference VM, not the 16 GB LXC host VM |
+
+## Images: zstd compression (tested 2026-11-23 16:25Z; advisor consulted)
+| Claim | Status | Evidence / action |
+|---|---|---|
+| Ubuntu cloud images ship as zlib-compressed qcow2 | VERIFIED | 26.04 image: 822 MB stored, 2.1 GB uncompressed, 801 MB as zstd |
+| zstd decompresses faster than zlib | MEASURED (one run, sequential) | `qemu-img bench` 2 GB sequential reads, caches dropped: plain 0.30 s, zstd 0.44 s, zlib 1.01 s. Boot-time benefit not measured |
+| Adopt: re-compress base images as zstd | CANDIDATE, new imports only | Never in place: images 2 and 5 back live VMs. The download, convert, register flow is untested, and `QCOW2_OPTIONS` only shapes new overlays (not compressed on write) |
+
+## GPU increment 2: GPU for LXC (2026-11-23 16:26Z; tested 16:28Z; advisor consulted)
+| Claim | Status | Evidence / action |
+|---|---|---|
+| `LXC_PROFILES` (files in remotes/etc/vmm/lxc/profiles, synced) and `RAW TYPE=lxc` inject lxc config; driver keys win over RAW | VERIFIED | Profile `mynebula-devtest` (cgroup2 allow c 10:229 + bind mount /dev/fuse) included in the container config; an UNPRIVILEGED container opened /dev/fuse read-write. Test profile and container removed |
+| Only OpenNebula-managed path: GPU passthrough once into the LXC host VM; containers share one driver | VERIFIED (design) | node-lxc conflicts with node-kvm |
+| NVIDIA in containers: user-space libs must match the VM's driver; nvidia-uvm's device major is dynamic (read /proc/devices) | OPEN | On-site |
+| A GPU passed into a VM likely reaches only D3hot (no `_PR3` in the guest) | OPEN (on-site measure) | OWNER DECISION: an always-on GPU host (lxc-7550) means the GPU stays awake 24/7. An on-demand GPU VM (off when idle) returns it to host D3cold. Today it's D3cold ~99 % of the time |
+| On-site session plan | PLANNED | One scripted session (logged, dead-man reboot, cifast-agreed time). Small throwaway UEFI VM with all 4 functions; whole-board watts (psys) in three states: now / VM idle with driver / VM stopped |
