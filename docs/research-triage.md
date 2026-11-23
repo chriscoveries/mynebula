@@ -136,3 +136,11 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 | (B) On-demand inference VM + API server: full isolation, GPU back to host D3cold when the VM is off; OpenNebula scheduled actions are clock-based only, so wake-on-demand needs a small proxy calling `onevm resume` | VERIFIED (source: ScheduledAction.cc) | RECOMMENDED shape for the owner's two goals (sharing + idle-off). Cold start ~30-60 s + model load; suspend/resume could cut this once the resume-network delay is fixed |
 | A VM with a vfio hostdev has ALL RAM pinned; balloon and free page reporting are inhibited (`ram_block_discard_disable`) | VERIFIED (QEMU source) | Keep GPU VMs small; no overcommit, KSM or free page reporting for them |
 | nvidia-uvm / nvidia-caps majors are dynamic; 195 covers nvidia0/ctl/modeset | VERIFIED (source/field) | For (A): generate the LXC GPU profile at boot from /proc/devices; check the RAW repeated-key output |
+
+## Suspend/resume clock fix (research 16:49Z, tested 16:50-16:53Z)
+| Claim | Status | Evidence / action |
+|---|---|---|
+| OpenNebula re-syncs guest time on resume via qemu-ga (`kvm/restore:114-126`, `SYNC_TIME=yes` default) | VERIFIED | With qemu-guest-agent + `FEATURES=[GUEST_AGENT=yes]`: resume to RUNNING 14.6 s, ping 17.6 s, SSH 22.7 s (was ~126 s without the agent); systemd-resolved logged "Clock change detected"; in-guest process kept counting (9 -> 20) |
+| TSC marked unstable after restore | NOTE | Still happens; harmless once the clock is synced (kvm-clock takes over) |
+| Suspend (not poweroff) as the idle state for a GPU VM | DOUBTFUL | QEMU normally blocks saving a VM with a physical vfio device (migration blocker). Ask Devin to confirm from source; if so, shape B idles by poweroff |
+| Power glue: hooks are notification-only; scheduled actions are clock-based; no scale-to-zero in CE | VERIFIED (source) | A small front proxy is needed (state check -> `onevm resume`/`deploy` -> forward; idle timer -> suspend/poweroff) |
