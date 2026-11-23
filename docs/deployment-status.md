@@ -14,3 +14,7 @@ Updated: 2026-11-23.
 | webclip frontend | Deferred | Existing services must be preserved |
 
 Agent must replace planned statuses only with evidence from tests or actual machine runs.
+
+## Initial CI
+
+The 2026-11-23 commit `5c4e5caa` passed GitHub Actions unit, syntax and compile checks. Boot validation, firmware cases and a live install have not been tested.

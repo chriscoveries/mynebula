@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # READ-ONLY acceptance checks after the Ubuntu 26.10 host first boots.
 set -u
+if [[ "$EUID" -ne 0 ]]; then
+  echo 'Run as root: sudo bash scripts/verify-node.sh' >&2
+  exit 2
+fi
 failed=0
 check() {
   local label="$1"; shift

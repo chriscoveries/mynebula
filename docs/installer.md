@@ -60,3 +60,7 @@ SSH to the new host over Tailscale or the management LAN, execute `scripts/verif
 - Generated images contain a password **hash**, public SSH key, unique disk ID and possibly a sensitive auth key. Do not upload them.
 - Ubuntu's installer defaults to asking for confirmation unless `autoinstall` is on the kernel command line. This script deliberately adds it.
 - For testing with lower risk, a stock Ubuntu ISO plus separate `CIDATA` NoCloud seed allows an interactive disk-wipe confirmation.
+
+## Running the verifier
+
+Use `sudo bash scripts/verify-node.sh` on the installed host. The verifier uses system libvirt access, which generally requires privileged authorization on Ubuntu 26.10.

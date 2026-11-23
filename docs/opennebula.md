@@ -24,3 +24,7 @@ Frontend on `webclip` is deferred. Hypervisor host preparation can proceed indep
 - Prove VM create/boot/shutdown and passthrough separately.
 
 Reference: https://docs.opennebula.io/7.4/software/installation_process/cluster_installation/kvm_node_installation/
+
+## Critical Ubuntu 26.10 libvirt difference
+
+Ubuntu 26.10 libvirt 12.6 replaces legacy socket group access with polkit authorization. The published OpenNebula 7.4 Debian/Ubuntu procedure still describes granting oneadmin membership in libvirt to access the socket. Before any OpenNebula host install, prove that OpenNebula's unattended SSH-launched oneadmin operations can connect to qemu:///system, then document a narrowly scoped polkit or socket policy. See docs/compatibility.md. Do not add an unsafe blanket rule permitting all local users.

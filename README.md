@@ -40,3 +40,7 @@ No tokens, private SSH keys, passwords or generated per-host images belong in Gi
 - [Ubuntu autoinstall specification](https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html)
 - [OpenNebula 7.4 KVM node](https://docs.opennebula.io/7.4/software/installation_process/cluster_installation/kvm_node_installation/)
 - [OpenNebula 7.4 platform notes](https://docs.opennebula.io/7.4/software/release_information/release_notes/platform_notes/)
+
+## Compatibility watch
+
+Ubuntu 26.10 ships libvirt 12.6 with polkit-based socket access; OpenNebula's 7.4 Ubuntu guide still expects group-based access for oneadmin. See [compatibility risks](docs/compatibility.md) for the required proof-of-concept. CI unit tests validate scripts, not a full ISO boot.

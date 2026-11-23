@@ -26,7 +26,7 @@ CI performs these non-destructive checks. They do not prove that the remastered 
 
 ```bash
 bash scripts/preflight.sh
-bash scripts/verify-node.sh
+sudo bash scripts/verify-node.sh
 ```
 
 After deployment, verify actual kernel via `uname -r` (7.3 family), `timedatectl`, SSH key auth, service status, `virsh -c qemu:///system list --all`, `/dev/kvm` and `tailscale status`. Confirm data disks remain intact. Check logs: `journalctl -u mynebula` if present and `/var/log/cloud-init-output.log` after redacting possible keys.
@@ -42,3 +42,5 @@ After deployment, verify actual kernel via `uname -r` (7.3 family), `timedatectl
 ## OpenNebula gate
 
 One host successfully registered and `ON` in OpenNebula 7.4, with a guest VM launched, after separate host-package compatibility validation. This is explicitly out of scope for initial OS image completion.
+
+Agent must validate non-root libvirt access separately for the oneadmin service identity, once created. On 26.10, polkit may deny socket access even if the user belongs to a libvirt group.

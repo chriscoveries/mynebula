@@ -32,3 +32,7 @@ A node boots with Ubuntu 26.10, uses the 7.3-series kernel, has working SSH, is 
 ## Agent deliverable
 
 Submit a concise status: host name, OS/kernel, target disk serial, network reachability, CPU/IOMMU, KVM smoke test, GPU/NIC/RDMA probes, reboot count, SSH survivability, caveats, commands performed, changed files, commit/PR, next approval needed. Redact IPs/secrets where relevant.
+
+## Additional 26.10 compatibility check
+
+Ubuntu 26.10 ships libvirt 12.6, which drops group-based socket authorization in favor of polkit. Test oneadmin non-interactive access to qemu:///system in an isolated VM; do not assume that adding oneadmin to the libvirt group suffices. See docs/compatibility.md.

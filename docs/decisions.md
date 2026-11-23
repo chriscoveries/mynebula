@@ -28,3 +28,7 @@ Last reviewed: 2026-11-23.
 - Tailscale token enrolment mode. One-use token on ISO provides zero touch but persists in install records/media; safer manual enrolment is possible.
 - VM datastore scheme: local file, LVM thin, ZFS, btrfs, shared NFS or another later design.
 - One-on-26.10 integration result before claiming the host can be managed by OpenNebula.
+
+## Libvirt authorization note
+
+Ubuntu 26.10 includes libvirt 12.6 and polkit-based socket access. OpenNebula's documented oneadmin/libvirt-group arrangement must be proven or adapted in a disposable test node before production; see docs/compatibility.md.
