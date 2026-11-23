@@ -63,6 +63,18 @@ class TestWifi(unittest.TestCase):
             rvt.make_config([KEY], HASH, wifi=("HomeNet", "short"))
 
 
+class TestPowerAndGpu(unittest.TestCase):
+    def test_iommu_and_battery_guard(self):
+        auto = rvt.make_config([KEY], HASH)["autoinstall"]
+        self.assertTrue(any("intel_iommu=on iommu=pt" in c for c in auto["late-commands"]))
+        paths = [f["path"] for f in auto["user-data"]["write_files"]]
+        self.assertIn("/usr/local/sbin/mynebula-battery-guard", paths)
+        self.assertIn(["systemctl", "enable", "--now", "mynebula-battery-guard.timer"], auto["user-data"]["runcmd"])
+        self.assertIn("thermald", auto["user-data"]["packages"])
+        # The GPU is never bound to vfio blindly at install time.
+        self.assertFalse(any("vfio-pci.ids" in c or "driverctl" in c for c in auto["late-commands"]))
+
+
 class TestNoSleep(unittest.TestCase):
     def test_lid_and_sleep_disabled(self):
         auto = rvt.make_config([KEY], HASH)["autoinstall"]

@@ -23,6 +23,7 @@ PACKAGES = [
     "pciutils", "usbutils", "ethtool", "iproute2", "bridge-utils",
     "dmidecode", "driverctl", "numactl", "hwloc", "cpu-checker",
     "rdma-core", "ibverbs-utils", "infiniband-diags", "jq", "sysstat",
+    "thermald", "fwupd",
 ]
 SERVICE = """[Unit]
 Description=MyNebula first boot (Tailscale + OpenNebula node)
@@ -47,6 +48,36 @@ HOSTNAME_CMD = (
     "sed -i \"s/\\bnebula-node\\b/$H/g\" /target/etc/hosts"
 )
 PLACEHOLDER = "nebula-node"
+# IOMMU on (GPU passthrough later), console blanks after 2 min (laptop screen/heat).
+GRUB_CMD = (
+    "sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=\"/&intel_iommu=on iommu=pt consoleblank=120 /' /target/etc/default/grub && "
+    "curtin in-target --target=/target -- update-grub"
+)
+# A laptop's battery is a free UPS: shut down cleanly before it runs flat.
+BATTERY_GUARD = """#!/bin/sh
+# mynebula: power off cleanly when on battery and below 10%.
+for b in /sys/class/power_supply/BAT*; do
+  [ -r "$b/status" ] || continue
+  if [ "$(cat $b/status)" = Discharging ] && [ "$(cat $b/capacity)" -le 10 ]; then
+    logger -t mynebula-battery "battery $(cat $b/capacity)% and discharging: powering off"
+    systemctl poweroff
+  fi
+done
+"""
+BATTERY_SERVICE = """[Unit]
+Description=MyNebula battery guard (power off below 10% on battery)
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/mynebula-battery-guard
+"""
+BATTERY_TIMER = """[Unit]
+Description=MyNebula battery guard, every minute
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+[Install]
+WantedBy=timers.target
+"""
 # Laptops and desktops as hypervisors: never suspend, ignore the lid.
 LOGIND = """[Login]
 HandleLidSwitch=ignore
@@ -97,6 +128,12 @@ def make_config(public_keys: list[str], password_hash: str, disk_serial: str | N
          "owner": "root:root", "content": SERVICE},
         {"path": "/etc/systemd/logind.conf.d/mynebula-no-sleep.conf", "permissions": "0644",
          "owner": "root:root", "content": LOGIND},
+        {"path": "/usr/local/sbin/mynebula-battery-guard", "permissions": "0755",
+         "owner": "root:root", "content": BATTERY_GUARD},
+        {"path": "/etc/systemd/system/mynebula-battery-guard.service", "permissions": "0644",
+         "owner": "root:root", "content": BATTERY_SERVICE},
+        {"path": "/etc/systemd/system/mynebula-battery-guard.timer", "permissions": "0644",
+         "owner": "root:root", "content": BATTERY_TIMER},
         {"path": "/etc/mynebula/tailscale-tags", "permissions": "0644",
          "owner": "root:root", "content": tailscale_tags + "\n"},
     ]
@@ -115,13 +152,14 @@ def make_config(public_keys: list[str], password_hash: str, disk_serial: str | N
         "identity": {"hostname": PLACEHOLDER, "username": "hyper", "password": password_hash},
         "ssh": {"install-server": True, "allow-pw": False, "authorized-keys": public_keys},
         "updates": "security",
-        "late-commands": [HOSTNAME_CMD],
+        "late-commands": [HOSTNAME_CMD, GRUB_CMD],
         "user-data": {
             "package_update": True,
             "packages": PACKAGES,
             "write_files": files,
             "runcmd": [["systemctl", "mask", "sleep.target", "suspend.target", "hibernate.target", "hybrid-sleep.target"],
                        ["systemctl", "daemon-reload"],
+                       ["systemctl", "enable", "--now", "mynebula-battery-guard.timer"],
                        ["systemctl", "enable", "--now", "--no-block", "mynebula-firstboot.service"]],
         },
     }
