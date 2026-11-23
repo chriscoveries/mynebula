@@ -53,10 +53,17 @@ class TestWifi(unittest.TestCase):
     def test_wifi_and_wired_with_metrics(self):
         auto = rvt.make_config([KEY], HASH, wifi=("HomeNet", "correct horse"))["autoinstall"]
         net = auto["network"]
-        self.assertEqual(net["wifis"]["wifi"]["access-points"]["HomeNet"]["password"], "correct horse")
+        self.assertEqual(net["wifis"]["wlp0s20f3"]["access-points"]["HomeNet"]["password"], "correct horse")
         self.assertLess(net["ethernets"]["wired"]["dhcp4-overrides"]["route-metric"],
-                        net["wifis"]["wifi"]["dhcp4-overrides"]["route-metric"])
+                        net["wifis"]["wlp0s20f3"]["dhcp4-overrides"]["route-metric"])
+        # networkd rejects match: on wifis
+        self.assertTrue(all("match" not in w for w in net["wifis"].values()))
         self.assertIn("wpasupplicant", auto["packages"])
+
+    def test_two_networks(self):
+        auto = rvt.make_config([KEY], HASH, wifi=[("floptusTEST5g", "password1"), ("floptusTEST", "password1")])["autoinstall"]
+        self.assertEqual(set(auto["network"]["wifis"]["wlp0s20f3"]["access-points"]), {"floptusTEST5g", "floptusTEST"})
+        self.assertTrue(any("ieee80211_regdom=AU" in c for c in auto["late-commands"]))
 
     def test_bad_passphrase_rejected(self):
         with self.assertRaises(ValueError):

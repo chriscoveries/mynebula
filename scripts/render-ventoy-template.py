@@ -48,9 +48,10 @@ HOSTNAME_CMD = (
     "sed -i \"s/\\bnebula-node\\b/$H/g\" /target/etc/hosts || true"
 )
 PLACEHOLDER = "nebula-node"
+WIFI_IFACES = ["wlp0s20f3", "wlp2s0", "wlp3s0", "wlo1", "wlan0"]
 # IOMMU on (GPU passthrough later), console blanks after 2 min (laptop screen/heat).
 GRUB_CMD = (
-    "sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=\"/&intel_iommu=on iommu=pt consoleblank=120 /' /target/etc/default/grub && "
+    "sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=\"/&intel_iommu=on iommu=pt consoleblank=120 cfg80211.ieee80211_regdom=AU /' /target/etc/default/grub && "
     "curtin in-target --target=/target -- update-grub || true"
 )
 # A laptop's battery is a free UPS: shut down cleanly before it runs flat.
@@ -144,7 +145,7 @@ def read_keys(path: str) -> list[str]:
 def make_config(public_keys: list[str], password_hash: str, disk_serial: str | None = None,
                 tailscale_key: str | None = None, tailscale_tags: str = "tag:nebula-node",
                 frontend_pubkey: str | None = None, timezone: str = "Australia/Sydney",
-                wifi: tuple[str, str] | None = None) -> dict:
+                wifi: tuple[str, str] | list[tuple[str, str]] | None = None) -> dict:
     if not password_hash.startswith("$6$"):
         raise ValueError("Expected SHA-512 crypt hash (openssl passwd -6)")
     if disk_serial is not None and not re.fullmatch(r"[A-Za-z0-9_.:+@-]{4,128}", disk_serial):
@@ -204,16 +205,21 @@ def make_config(public_keys: list[str], password_hash: str, disk_serial: str | N
         },
     }
     if wifi:
-        ssid, psk = wifi
-        if not (1 <= len(ssid.encode()) <= 32) or not (8 <= len(psk) <= 63):
-            raise ValueError("Wi-Fi SSID must be 1-32 bytes and the passphrase 8-63 characters")
+        networks = [wifi] if isinstance(wifi, tuple) else list(wifi)
+        for ssid, psk in networks:
+            if not (1 <= len(ssid.encode()) <= 32) or not (8 <= len(psk) <= 63):
+                raise ValueError("Wi-Fi SSID must be 1-32 bytes and the passphrase 8-63 characters")
+        aps = {ssid: {"password": psk} for ssid, psk in networks}
         # Wired preferred when both are up (lower metric); Wi-Fi is used when no cable.
         auto["network"] = {"version": 2,
             "ethernets": {"wired": {"match": {"name": "en*"}, "dhcp4": True, "optional": True,
                                     "dhcp4-overrides": {"route-metric": 100}}},
-            "wifis": {"wifi": {"match": {"name": "wl*"}, "dhcp4": True, "optional": True,
-                               "dhcp4-overrides": {"route-metric": 600},
-                               "access-points": {ssid: {"password": psk}}}}}
+            # networkd can't match Wi-Fi by pattern: name the usual interfaces explicitly
+            # (wlp0s20f3 = Intel CNVi AX201/AX211 on Dell Precision 75x0; the others are fallbacks).
+            "wifis": {name: {"dhcp4": True, "optional": True,
+                             "dhcp4-overrides": {"route-metric": 600},
+                             "access-points": aps}
+                      for name in WIFI_IFACES}}
         # Installed by the installer itself, so Wi-Fi works on first boot without a cable.
         auto["packages"] = ["wpasupplicant", "linux-firmware", "iw", "wireless-regdb"]
     if disk_serial:
@@ -250,10 +256,10 @@ def main() -> int:
         if a.wifi_file:
             if Path(a.wifi_file).stat().st_mode & 0o077:
                 raise ValueError("Wi-Fi file permissions must be 0600")
-            lines = Path(a.wifi_file).read_text(encoding="utf-8").splitlines()
-            if len(lines) < 2:
-                raise ValueError("Wi-Fi file needs SSID on line 1 and passphrase on line 2")
-            wifi = (lines[0].rstrip("\r"), lines[1].rstrip("\r"))
+            lines = [l.rstrip("\r") for l in Path(a.wifi_file).read_text(encoding="utf-8").splitlines() if l.strip()]
+            if len(lines) < 2 or len(lines) % 2:
+                raise ValueError("Wi-Fi file: pairs of lines, SSID then passphrase")
+            wifi = [(lines[i], lines[i + 1]) for i in range(0, len(lines), 2)]
         obj = make_config(read_keys(a.ssh_keys_file), read_one(a.password_hash_file), a.disk_serial,
                           token, a.tailscale_tags,
                           read_one(a.frontend_oneadmin_pub) if a.frontend_oneadmin_pub else None,
