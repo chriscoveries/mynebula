@@ -163,3 +163,11 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 | Claim | Status | Evidence / action |
 |---|---|---|
 | rxe is the bottleneck, not the virtio path | MEASURED | Same two 26.04 VMs on the NAT bridge: TCP iperf3 28.3 Gb/s (1 stream) / 33.7 Gb/s (4 streams); rxe ib_send_bw 2.95 Gb/s (1 QP) / 3.74 Gb/s (4 QPs). rxe gets ~10 % of TCP and barely scales with QPs (software, CPU-bound, 30 W cap, MTU 1024). Use rxe for correctness only; performance needs real RNICs (ConnectX-5/6, 25-100 Gb/s, ~1-2 us). Larger MTU (bridge 9000) is a network change, deferred |
+
+## Wake proxy prototype (built by sys-devin2-rt 18:0x-19:01Z; advisor-validated; cleanup verified by firesystems)
+| Claim | Status | Evidence / action |
+|---|---|---|
+| llama-swap v275 wakes a powered-off VM, holds requests, powers off on idle | MEASURED | Cold 54.3 s / 36.4 s, warm 0.65 s, 2 parallel = 1 resume, ttl -> POWEROFF in 10-15 s (x3), request during shutdown answered in 47.3 s. Files: scripts/inference-wake/ |
+| Restricted OpenNebula user | MEASURED (partial) | Denied: `onevm show 8`, template USE/CREATE, MANAGE on a second throwaway VM; positive control OK. NOT tested: `onevm create` (VM CREATE). New groups get default ACL rows: delete them |
+| Failure paths | MEASURED | SIGKILL orphans the tunnel and leaves the VM running; `systemctl stop` leaves the VM running. Graduation needs ExecStopPost poweroff + an independent reaper |
+| Cleanup | VERIFIED by firesystems | ACL back to original rows 0-5; no test user/group/template/listener/process; node authorized_keys clean; VMs 8/5 have no new history; VM 19 terminated |

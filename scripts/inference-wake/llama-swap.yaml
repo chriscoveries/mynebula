@@ -1,0 +1,23 @@
+# llama-swap config — wake-proxy prototype (T113)
+# Model cmd = wake-vm19.sh: resumes OpenNebula VM19 if POWEROFF, holds an
+# ssh -L tunnel to Ollama, powers the VM off on every exit path.
+# proxy is a BASE URL (no path): llama-swap reverse-proxies request paths
+# onto it, so /v1/chat/completions -> http://127.0.0.1:11435/v1/chat/completions.
+# checkEndpoint is polled through the same proxy every 1s until HTTP 200 or
+# healthCheckTimeout; client requests wait during this window.
+# cmdStop intentionally unset: the single stop path is SIGTERM to the cmd
+# process group -> wrapper trap -> onevm poweroff.
+
+healthCheckTimeout: 180
+logLevel: info
+logToStdout: "proxy,upstream"
+unloadTimeout: 10
+
+models:
+  "qwen2.5:7b":
+    name: "qwen2.5 7b (wake VM19)"
+    description: "Ollama qwen2.5:7b on OpenNebula VM19 test-infer; wakes on demand, powers off after ttl"
+    cmd: /home/wakeproxy/wake-vm19.sh
+    proxy: http://127.0.0.1:11435
+    checkEndpoint: /v1/models
+    ttl: 120

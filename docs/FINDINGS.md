@@ -61,7 +61,7 @@ Updated 2026-11-23 17:00Z; the loop updates this when a headline figure changes.
   - A GPU VM has all its RAM pinned (no balloon, free page reporting or KSM) [S].
   - In a guest the GPU likely reaches only D3hot [S].
 - **Recommended shape:** a small on-demand inference VM serving an API, off when idle, so the GPU returns to D3cold [S].
-  - It needs a wake proxy (not built).
+  - **Wake proxy prototype works** [M]: llama-swap on the frontend wakes the powered-off VM through a restricted OpenNebula user. Cold 36-54 s, warm 0.65 s, idle power-off 10-15 s after the timeout (scripts/inference-wake/). Not production-ready: a killed proxy leaves the VM running, so it needs a reaper.
   - A VM holding the GPU **cannot be suspended** (QEMU vfio migration blocker; libvirt hostdev; OpenNebula `save` = `virsh save`) [S]. So idle = **poweroff**. Cold start measured on CPU (no GPU), 8 GB UEFI 26.04 VM, qwen2.5:7b Q4: RUNNING 8.3 s, SSH 25.7 s, Ollama API 30.6 s, **first answer 44.0 s** (model load 6.1 s) [M, one run]. With the GPU expect ~40–55 s [E]. The owner accepts 30–60 s.
   - Untested idea: guest-initiated suspend-to-RAM might let the GPU drop to a low-power state without OpenNebula involvement.
   - The GPU-in-LXC-host alternative would keep the GPU awake [S].
