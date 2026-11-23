@@ -22,7 +22,7 @@ Owner decisions, 2026-11-23. `scripts/apply-host-policy.sh` applies them and is 
   `RAW=[TYPE="kvm", DATA="<devices><memballoon model='virtio' freePageReporting='on'/></devices>", VALIDATE="NO"]`.
   OpenNebula 7.4 has no toggle; with `VALIDATE=NO`, libvirt ends up with a single balloon device carrying the flag.
   Measured: a guest that filled and freed 3 GB went from 3.4 GB host RSS back to 0.9 GB within 15 s.
-- **qemu-guest-agent in every guest** plus `FEATURES=[GUEST_AGENT=\"yes\"]` in every template: OpenNebula re-syncs the guest clock on resume through it. Without it, guests took ~2 min to answer after a resume (measured).
+- **qemu-guest-agent in every guest** plus `FEATURES=[GUEST_AGENT="yes"]` in every template: OpenNebula re-syncs the guest clock on resume through it. Without it, guests took ~2 min to answer after a resume (measured).
 - **zram in every guest:** `systemd-zram-generator`, zstd, min(RAM/4, 8 GB). Ubuntu cloud images ship neither zram nor swap, and the 24.04 cloud kernel needs `linux-modules-extra` (pull in `linux-image-extra-virtual` so kernel updates keep zram).
 
 ## Storage
