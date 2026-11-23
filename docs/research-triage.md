@@ -91,7 +91,8 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 | CONTEXT works in LXC | VERIFIED | Hostname, SSH key and static IP applied |
 | Nested restart (LXC host VM reboot) | VERIFIED | The autostart hook resumed the container about 3 min after `lxc-7550` rebooted; Tailscale and lxcbr0 came back |
 | lxc-net DHCP overlapping the OpenNebula address range | FIXED | `LXC_DHCP_RANGE=10.0.3.2,10.0.3.99` (the image's netplan also takes a DHCP lease; it now lands outside 100-199) |
-| Prometheus rules.yml contents; Alertmanager routing | OPEN | Check rule_files is loaded; Alertmanager has no receiver yet (owner: where should alerts go?) |
+| Prometheus rules.yml contents; Alertmanager routing | PARTLY DONE | rules.yml is loaded (4 groups, 12 rules). Alertmanager's only receiver is the default `web.hook` at 127.0.0.1:5001 (nothing listens), so alerts go nowhere until the owner picks a destination |
+| `SchedulerDown` fires permanently | FIXED LOCALLY (upstream bug) | 7.4 runs the scheduler inside oned (`one_sched.rb`), but opennebula_server_collector.rb:41 checks the removed `opennebula-scheduler.service`. rules.yml now alerts only if the exporter itself is down (original kept as rules.yml.orig-20261123). Report upstream |
 | `QCOW2_OPTIONS="-o compression_type=zstd"` on shared TM | OPEN | Measure space saved and read cost on a throwaway image |
 | Beyond: OneGate, VM groups/affinity, quotas, host hooks, OneFlow | OPEN (ranked) | Host hooks first (GPU D3cold) |
-| patch_datasources.rb adds a libvirt exporter target for every host | NOTE | lxc-7550:9926 shows down (no libvirt there; exporter disabled). Harmless |
+| patch_datasources.rb adds a libvirt exporter target for every host | FIXED LOCALLY | It raised a critical InstanceDown for lxc-7550:9926 (no libvirt on an LXC host). Removed that target from prometheus.yml; re-running patch_datasources.rb re-adds it, so remove it again after any re-run |
