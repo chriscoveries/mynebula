@@ -46,4 +46,6 @@ Owner decisions, 2026-11-23. `scripts/apply-host-policy.sh` applies them and is 
 ## Monitoring
 - **Node:** OpenNebula Prometheus exporters (`opennebula-prometheus-kvm`: node and libvirt exporters).
 - **Frontend:** Prometheus and Alertmanager on the frontend (`opennebula-prometheus`), with 90-day / 4 GB retention, tailnet only.
-- **Beszel:** the hub is on the frontend (webclip).
+- **Whole-platform power:** the RAPL `psys` zone is exported as `mynebula_rapl_psys_joules_total` through the node_exporter textfile collector, because node_exporter's rapl collector skips psys.
+- **Temperatures** come from node_exporter's default hwmon collector.
+- **Beszel:** the hub is on the frontend (webclip). Each node runs the pinned cifast runbook agent (`beszel.sh install --role agent --listen-ip <tailnet ip>`) and is registered in the hub.

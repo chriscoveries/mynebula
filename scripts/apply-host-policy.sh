@@ -57,4 +57,23 @@ fi
 
 # 5. Base-image dir on root (datastore symlink is created per datastore id by the frontend step)
 install -d -o oneadmin -g oneadmin -m 0750 /srv/one-images 2>/dev/null || true
+# 6. Whole-platform power (RAPL psys) for Prometheus via the node_exporter textfile collector
+install -d -m 0755 /var/lib/node_exporter/textfile
+cat > /usr/local/sbin/mynebula-psys-prom <<'Q'
+#!/bin/sh
+D=/var/lib/node_exporter/textfile; Z=$(grep -l "^psys$" /sys/class/powercap/intel-rapl:*/name 2>/dev/null | head -1)
+[ -n "$Z" ] || exit 0
+E=$(cat $(dirname $Z)/energy_uj)
+printf "# HELP mynebula_rapl_psys_joules_total RAPL psys (whole platform) energy.\n# TYPE mynebula_rapl_psys_joules_total counter\nmynebula_rapl_psys_joules_total %s\n" $(awk -v e=$E 'BEGIN{printf "%.6f", e/1000000}') > $D/psys.prom.$$ && mv $D/psys.prom.$$ $D/psys.prom
+Q
+chmod 0755 /usr/local/sbin/mynebula-psys-prom
+printf '[Unit]\nDescription=MyNebula psys energy for node_exporter\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/mynebula-psys-prom\n' > /etc/systemd/system/mynebula-psys-prom.service
+printf '[Unit]\nDescription=MyNebula psys energy every 15s\n[Timer]\nOnBootSec=10s\nOnUnitActiveSec=15s\nAccuracySec=1s\n[Install]\nWantedBy=timers.target\n' > /etc/systemd/system/mynebula-psys-prom.timer
+if systemctl list-unit-files opennebula-node-exporter.service >/dev/null 2>&1; then
+  mkdir -p /etc/systemd/system/opennebula-node-exporter.service.d
+  printf '[Service]\nExecStart=\nExecStart=/usr/bin/node_exporter --collector.textfile.directory=/var/lib/node_exporter/textfile\n' > /etc/systemd/system/opennebula-node-exporter.service.d/textfile.conf
+fi
+systemctl daemon-reload; systemctl enable --now mynebula-psys-prom.timer
+systemctl try-restart opennebula-node-exporter.service || true
+log "psys exporter: mynebula_rapl_psys_joules_total"
 log "done"
