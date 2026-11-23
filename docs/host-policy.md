@@ -8,7 +8,7 @@ Owner decisions, 2026-11-23. `scripts/apply-host-policy.sh` applies them and is 
   - Proven to bind on its own: an all-core burst averaged 29.97 W with thermald moving the MMIO limit, vs 29.95 W with both pinned.
   - thermald (`--adaptive`, Dell DPTF) owns the MMIO limit; leave it alone. It also resets MSR to 200 W when it starts.
   - So a watchdog timer re-applies MSR every minute (`OnCalendar=*:*:00`; the service is stopped before enabling; install fails if the timer has no next run).
-  - The per-host value is pending the quiet-cap sweep.
+  - **Per-host override:** `/etc/mynebula/host.env` (`CPU_CAP_W=<watts>`), read by apply-host-policy.sh. nebula-7550 uses `CPU_CAP_W=20`, chosen by the quiet-cap sweep.
 - **Turbo off** (`intel_pstate/no_turbo=1`, persisted via `/etc/tmpfiles.d/mynebula-no-turbo.conf`). Owner 2026-11-23: turbo bursts spike the package ~65→100 °C within seconds and start the fans. Max 2.6 GHz; idle floor 800 MHz (powersave governor).
 - **Servers and desktops** (no battery): no cap. Set `CPU_CAP_W` explicitly if wanted.
 - **Laptops also get:**
@@ -21,7 +21,8 @@ Owner decisions, 2026-11-23. `scripts/apply-host-policy.sh` applies them and is 
 ## Memory: lite, deduplicated guests ("Firecracker features on KVM")
 - **KSM** on, with the kernel scan-time advisor (`advisor_mode=scan-time`, `advisor_max_cpu=10`, target scan 200 s), `use_zero_pages=1`, `smart_scan=1`.
   - Trade-off: KSM shares identical pages across guests, which is a known cross-VM timing side channel. Accepted for this lab.
-- **KSM cost:** ksmd uses a steady ~10 % CPU with `advisor_max_cpu=10`, a constant heat source; under review in the quiet-cap sweep.
+- **KSM on laptops: slow scan** (`advisor_mode=none`, `pages_to_scan=100`, `sleep_millisecs=200`). ksmd drops from ~10 % to ~0.2 % CPU, fewer fan starts. Servers keep the scan-time advisor.
+- **EPP on laptops: `balance_power`** (tmpfiles, all CPUs): lazier ramp-up on bursts, fewer fan starts, no measurable clock cost.
 - **Guest RAM** is allocated on touch (no hugepage preallocation).
 - **Free page reporting** on every VM template, so freed guest memory returns to the host:
   `RAW=[TYPE="kvm", DATA="<devices><memballoon model='virtio' freePageReporting='on'/></devices>", VALIDATE="NO"]`.

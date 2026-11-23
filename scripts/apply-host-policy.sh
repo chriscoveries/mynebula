@@ -1,9 +1,11 @@
 #!/bin/sh
 # Apply mynebula host policy (docs/host-policy.md) on a node. Idempotent; run as root.
-# CPU_CAP_W: default 30 on laptop-class hosts (battery present), unset (no cap) otherwise.
+# CPU_CAP_W: /etc/mynebula/host.env override wins, else default 30 on laptop-class hosts (battery present), unset (no cap) otherwise.
 set -eu
 log(){ echo "apply-host-policy: $*"; }
 is_laptop(){ ls /sys/class/power_supply/BAT* >/dev/null 2>&1; }
+# Per-host overrides (e.g. CPU_CAP_W=20); laptop defaults below still apply when unset
+[ -f /etc/mynebula/host.env ] && . /etc/mynebula/host.env
 
 # 1. Power cap (laptops only unless CPU_CAP_W is set)
 if [ -z "${CPU_CAP_W:-}" ] && is_laptop; then CPU_CAP_W=30; fi
@@ -47,12 +49,28 @@ if is_laptop && [ -w /sys/devices/system/cpu/intel_pstate/no_turbo ]; then
   log "no_turbo=$(cat /sys/devices/system/cpu/intel_pstate/no_turbo)"
 fi
 
+# 1c. energy_performance_preference=balance_power on laptops (gentler freq ramps, fewer fan starts)
+if is_laptop && [ -e /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference ]; then
+  printf 'w /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference - - - - balance_power\n' > /etc/tmpfiles.d/mynebula-epp.conf
+  systemd-tmpfiles --create /etc/tmpfiles.d/mynebula-epp.conf || log "EPP tmpfiles unsupported"
+  log "EPP=$(cat /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference)"
+fi
+
 # 2. RAPL energy readable for the Prometheus node exporter
 echo 'SUBSYSTEM=="powercap", ACTION=="add", RUN+="/bin/chmod 0444 /sys%p/energy_uj"' > /etc/udev/rules.d/60-rapl-readable.rules
 chmod 0444 /sys/class/powercap/intel-rapl*/energy_uj /sys/class/powercap/intel-rapl*/intel-rapl*/energy_uj 2>/dev/null || true
 
-# 3. KSM with the kernel scan-time advisor
-cat > /etc/tmpfiles.d/mynebula-ksm.conf <<'K'
+# 3. KSM: laptops get the slowed scan (quiet wins over dedupe speed); other hosts keep the scan-time advisor
+if is_laptop; then
+  cat > /etc/tmpfiles.d/mynebula-ksm.conf <<'K'
+w /sys/kernel/mm/ksm/run - - - - 1
+w /sys/kernel/mm/ksm/advisor_mode - - - - none
+w /sys/kernel/mm/ksm/pages_to_scan - - - - 100
+w /sys/kernel/mm/ksm/sleep_millisecs - - - - 200
+w /sys/kernel/mm/ksm/use_zero_pages - - - - 1
+K
+else
+  cat > /etc/tmpfiles.d/mynebula-ksm.conf <<'K'
 w /sys/kernel/mm/ksm/run - - - - 1
 w /sys/kernel/mm/ksm/advisor_mode - - - - scan-time
 w /sys/kernel/mm/ksm/advisor_max_cpu - - - - 10
@@ -60,6 +78,7 @@ w /sys/kernel/mm/ksm/advisor_target_scan_time - - - - 200
 w /sys/kernel/mm/ksm/use_zero_pages - - - - 1
 w /sys/kernel/mm/ksm/smart_scan - - - - 1
 K
+fi
 systemd-tmpfiles --create /etc/tmpfiles.d/mynebula-ksm.conf || log "KSM advisor unsupported by this kernel (needs 6.9+)"
 log "KSM: run=$(cat /sys/kernel/mm/ksm/run) advisor=$(cat /sys/kernel/mm/ksm/advisor_mode 2>/dev/null || echo n/a)"
 
