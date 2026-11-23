@@ -122,3 +122,17 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 | NVIDIA in containers: user-space libs must match the VM's driver; nvidia-uvm's device major is dynamic (read /proc/devices) | OPEN | On-site |
 | A GPU passed into a VM likely reaches only D3hot (no `_PR3` in the guest) | OPEN (on-site measure) | OWNER DECISION: an always-on GPU host (lxc-7550) means the GPU stays awake 24/7. An on-demand GPU VM (off when idle) returns it to host D3cold. Today it's D3cold ~99 % of the time |
 | On-site session plan | PLANNED | One scripted session (logged, dead-man reboot, cifast-agreed time). Small throwaway UEFI VM with all 4 functions; whole-board watts (psys) in three states: now / VM idle with driver / VM stopped |
+
+## Memory dedupe and suspend/resume (tested 2026-11-23 16:37-16:42Z)
+| Claim | Status | Evidence / action |
+|---|---|---|
+| KSM dedupes across VMs from the same base images | MEASURED | 3 VMs (ci-7550 24.04, ci-2604 26.04, lxc-7550 24.04; 40 GB allocated): pages_sharing 1.18 M, general_profit 5.0 GB; the host uses 15 GB in total |
+| Suspend/resume as a "warm pool" | MEASURED, with a problem | 2 GB VM: suspend 3.5 s (checkpoint 732 MB), resume to RUNNING 7.3 s, in-guest process survived (same PID). But the guest answered SSH only after ~126 s: after restore the guest kernel marked the TSC unstable (clocksource watchdog). OPEN: does `CPU_MODEL=host-passthrough` + invtsc cause it; does a guest with `tsc=reliable` / kvm-clock-only resume instantly |
+
+## GPU increment 3: sharing (research 2026-11-23 16:40Z)
+| Claim | Status | Evidence / action |
+|---|---|---|
+| (A) GPU in the LXC host VM: no isolation between containers, GPU awake while lxc-7550 runs, CUDA libs coupled to the VM driver | VERIFIED (design) | |
+| (B) On-demand inference VM + API server: full isolation, GPU back to host D3cold when the VM is off; OpenNebula scheduled actions are clock-based only, so wake-on-demand needs a small proxy calling `onevm resume` | VERIFIED (source: ScheduledAction.cc) | RECOMMENDED shape for the owner's two goals (sharing + idle-off). Cold start ~30-60 s + model load; suspend/resume could cut this once the resume-network delay is fixed |
+| A VM with a vfio hostdev has ALL RAM pinned; balloon and free page reporting are inhibited (`ram_block_discard_disable`) | VERIFIED (QEMU source) | Keep GPU VMs small; no overcommit, KSM or free page reporting for them |
+| nvidia-uvm / nvidia-caps majors are dynamic; 195 covers nvidia0/ctl/modeset | VERIFIED (source/field) | For (A): generate the LXC GPU profile at boot from /proc/devices; check the RAW repeated-key output |
