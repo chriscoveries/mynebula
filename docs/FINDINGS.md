@@ -3,7 +3,7 @@
 Lab: frontend webclip (OpenNebula 7.4.1); node nebula-7550 (Dell Precision 7550, Ubuntu 26.04 now, 26.10 later per owner).
 Tags: **[M]** measured here · **[S]** from source/docs only, not run here · **[E]** estimate.
 Detail: [research-triage.md](research-triage.md) · Defaults: [host-policy.md](host-policy.md) · LXC: [lxc-host-vm.md](lxc-host-vm.md).
-Updated 2026-11-23 19:45Z; the loop updates this when a headline figure changes. Work status and to-do list: [deployment-status.md](deployment-status.md).
+Updated 2026-11-23 21:25Z; the loop updates this when a headline figure changes. Work status and to-do list: [deployment-status.md](deployment-status.md).
 **Note:** performance figures taken before 19:33Z were measured with turbo ON (cold start, wake proxy, suspend/resume, CI benchmark, RDMA/TCP, zstd reads). Turbo is now OFF (owner), so re-measure any that matter.
 
 ## Bottom line
@@ -12,17 +12,17 @@ Updated 2026-11-23 19:45Z; the loop updates this when a headline figure changes.
    - Thin disks, KSM, free page reporting, zram, autostart and power monitoring are all on [M].
 2. **"Firecracker features" on KVM work** [M]: memory dedupe saves GBs, freed RAM returns in seconds, suspend/resume preserves processes, and containers start in seconds.
 3. **GPU, recommended shape:** a small on-demand inference VM that's off when idle [S]. The live passthrough test still needs someone on site.
-4. **Owner decisions:** the quiet cap (after the sweep), Tailscale keys, backup target, alert destination, GPU shape + wake-proxy graduation, an on-site slot, PR to main.
+4. **Owner decisions:** 20 vs 30 W cap, Tailscale keys, backup target, alert destination, GPU shape + wake-proxy graduation, an on-site slot, PR to main.
 
 ## The node
 - **CPU** i7-10750H 6C/12T [M].
 - **RAM** 2×32 GB DDR4 SODIMM (Samsung M471A4G43AB1-CWE, rated 3200 CL22) running at **2933 MT/s**, dual channel [M]. Timings at 2933 were not read; JEDEC suggests ~CL21 ≈ 14 ns [E] (`decode-dimms` would confirm). 2 of 4 slots free; 128 GB max [M].
 - **NVMe** 1 TB: 32 GB root, 920 GB VM data [M].
-- **GPU** Quadro RTX 3000 Mobile 6 GB [M].
+- **GPU** Quadro RTX 3000 Mobile (TU106GLM, 10de:1f36), host driver `nouveau`; VRAM not readable from the host [M].
 - **Network:** Wi-Fi main link; Tailscale; uplink 33 Mbit/s, downlink 232 Mbit/s [M].
 
 ## Power
-- **Cap:** CPU package capped at 30 W, laptops only [M].
+- **Cap:** CPU package cap, laptops only: default 30 W; nebula-7550 runs **20 W** (per-host override `/etc/mynebula/host.env`) [M].
   - thermald (`--adaptive`) is the only writer of the MMIO limit (48–75 W) and resets MSR to 200 W when it starts [M]. A 1-minute watchdog re-applies the MSR cap. It silently stopped firing for 2.7 h on 23 Nov (stale unit state) and was fixed: verify timers by their next run, not by the value they set.
   - The timer has not yet been through a reboot.
 - **The cap binds through the MSR limit alone** [M]: all-core burst mean over seconds 5–20 was 29.97 W with thermald moving the MMIO limit (48–75 W), vs 29.95 W with both pinned at 30 W. So the cap script writes only `intel-rapl:0`, on an `OnCalendar` 1-minute watchdog; the MMIO limit is left to thermald. D1's 40 W peak was a sampler artifact.
@@ -36,9 +36,10 @@ Updated 2026-11-23 19:45Z; the loop updates this when a headline figure changes.
   - Manual PWM is exposed but not used (unsafe unattended).
 - **Quiet setup (adopted 23 Nov):** `quiet` + turbo off + 20 W cap + KSM slowed + EPP balance_power. Silent at idle; under saturated load the fans run ~73 % of the time at 20 W (25 W: 94 %, 15 W: 55 %, 12 W: 0 % for 4 min at ~40 % less CPU) [M, one pass]. Table in research-triage.md.
 - **Monitoring:** CPU package, psys and temperatures go to Prometheus on webclip; Beszel covers the physical hosts [M].
+- **Fan counter:** a 2 s poller on the node exports `mynebula_fan_starts_total` and `mynebula_fan_on_seconds_total`; Prometheus rules give starts and fan-on seconds per hour (scripts/fan-counter/, monitoring/fan-rules.yml). It matched a 1 Hz reference exactly over 10 min, but the fans stayed off, so a positive count is not yet verified [M].
 
 ## Memory ("Firecracker features" on KVM)
-- **KSM** (kernel auto-tuner): 5.0 GB saved; the host used 15 GB for 40 GB allocated (16:37Z, 3 VMs, one since terminated) [M]. Cost: ksmd uses a steady ~10 % CPU, a heat source; under review in the quiet-cap sweep [M].
+- **KSM** (kernel auto-tuner): 5.0 GB saved; the host used 15 GB for 40 GB allocated (16:37Z, 3 VMs, one since terminated) [M]. Cost with the auto-tuner: ksmd ~10 % CPU, a heat source; laptops now use a slow fixed scan (~0.2 % CPU) [M].
 - **Free page reporting:** a guest's freed 3 GB returned to the host in 15 s (3.4 → 0.9 GB) [M]. OpenNebula has no switch; it's set with RAW `VALIDATE=NO`, which relies on libvirt merging the device, so re-test after libvirt upgrades.
 - **Thin RAM:** allocated on touch; zram in every guest [M].
 - **Overcommit:** negative `RESERVED_MEM` raises schedulable memory [M]. Not adopted: the host has no swap.

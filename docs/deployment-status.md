@@ -1,6 +1,6 @@
 # Deployment status
 
-Updated: 2026-11-23 20:10Z. Facts and measurements: [FINDINGS.md](FINDINGS.md). Evidence per claim: [research-triage.md](research-triage.md).
+Updated: 2026-11-23 21:25Z. Facts and measurements: [FINDINGS.md](FINDINGS.md). Evidence per claim: [research-triage.md](research-triage.md).
 
 | Item | Status | Evidence |
 | --- | --- | --- |
@@ -11,19 +11,20 @@ Updated: 2026-11-23 20:10Z. Facts and measurements: [FINDINGS.md](FINDINGS.md). 
 | LXC host VM (lxc-7550) | Deployed, ON | Unprivileged containers, nested autostart tested; docs/lxc-host-vm.md |
 | Memory features (KSM, free page reporting, zram, thin disks) | Deployed | Measured: KSM 5.0 GB saved; FPR 3.4 -> 0.9 GB |
 | Power: 30 W MSR cap, turbo off, Dell quiet profile | Deployed | Cap proven to bind (29.97 W); turbo off in apply-host-policy.sh (laptops); quiet cap per host pending |
-| Fan-start metric | Partial | Prometheus rule `node:fan_starts:per_hour` (lower bound, monitoring/fan-rules.yml); exact 2 s node counter queued |
+| Fan-start metric | Deployed | Exact 2 s node counter + rules (scripts/fan-counter/, monitoring/fan-rules.yml); positive count unverified (fans stayed off in the check) |
 | GPU passthrough (RTX 3000) | Planned, needs on-site | PCI monitoring + UEFI verified; live bind not done |
 | Inference wake proxy | Prototype | scripts/inference-wake/; not production-ready |
 | Installer stick (Ventoy/YUMI) | Needs v9 | See known issues |
 | RDMA | Research + soft-RoCE only | No RDMA NIC |
 
 ## In flight
-- **Quiet-cap sweep** on nebula-7550 (sys-devin-rt). Done: bursty turbo-off, KSM-throttled, EPP balance_power, 25 W. Running: 20 W, then 15 W and a 15-min soak. Then advisor validation, and the owner picks the cap.
+- **Quiet setup done:** quiet + turbo off + 20 W + slow KSM + EPP balance_power (sweep table in research-triage.md). Owner to confirm 20 vs 30 W.
+- **CWF spike (eagle #132/#133)** on nebula-7550: plan /srv/CWF/evidence/plan/eagle-132-spike (9c6d34d2). Read-only preflights done; the loud parts wait for an owner-picked window.
 - **Joint firestar window, 24 Nov 10:05Z:** cccc 0.4.60 fork candidate (cwflab), then set B package updates + reboot, only on the owner's GO and a green claw group-restore rehearsal. nebula-7550/webclip are unaffected.
 
 ## To do
 - **Ours:**
-  - an exact fan-start counter (node-side 2 s poller; queued after the sweep);
+  - fold the fan counter into apply-host-policy.sh (run on the node to prove no drift);
   - keep or delete test image 6 (26.04 zstd);
   - test the `onevm create` denial for the proxy user;
   - read how the autostart-vm hook treats an operator poweroff;
@@ -32,7 +33,9 @@ Updated: 2026-11-23 20:10Z. Facts and measurements: [FINDINGS.md](FINDINGS.md). 
   - stick v9 (VentoyPart early-command test, Wi-Fi interface fix);
   - tell cifast the final cap AND that turbo is permanently off (their benchmark ran with turbo on).
 - **Owner:**
-  - pick the quiet cap;
+  - 20 vs 30 W cap;
+  - a window for the CWF spike (hours of load);
+  - GO for set B (firestar updates + reboot, 24 Nov);
   - Tailscale key expiry (nebula-7550, ci-2604, lxc-7550) + revoke the stick key;
   - restic backup target;
   - alert destination;

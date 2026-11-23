@@ -1,7 +1,12 @@
-# mynebula: fan off->on edges per hour, LOWER BOUND (1-min sampling of 15 s scrapes).
-# Misses sub-minute pulsing: on 2026-11-23 a 5-min window with 1 real start (1 Hz log) read 0.
-# An exact counter needs a node-side poller (textfile counters + increase()); planned.
-# NOTE: re-running OpenNebula's patch_datasources.rb regenerates prometheus.yml and drops the 'fan-rules.yml' rule_files line.
+# Fan-start counting for the "quieter host" proof metric (card T098).
+# Counts off->on edges of dell_smm fan RPM per hour.
+# Edge = fan rpm > 0 now AND fan rpm <= 0 exactly 1m ago, evaluated on a
+# LOWER BOUND ONLY: 1m edge granularity misses sub-minute fan pulses
+# (firesystems validation vs 1 Hz log: 1 real start, 0 counted). For the
+# exact count see mynebula_fan_starts_total (2s node poller, queued T098).
+# 1m subquery grid so each start is counted once. 1-min granularity:
+# pulses shorter than ~1m between scrapes are invisible (scrape is 15s,
+# so sub-minute toggles are already aliased upstream).
 groups:
 - name: FanNoise
   rules:
@@ -14,3 +19,9 @@ groups:
            (node_hwmon_fan_rpm{chip=~".*dell.*"} offset 1m <= 0))[1h:1m]
         )
       )
+  # Exact counters from mynebula-fan-counter (2 s node poller -> textfile).
+  # Empty until the poller is deployed on the node.
+  - record: node:fan_starts_exact:per_hour
+    expr: sum by (instance, fan) (increase(mynebula_fan_starts_total[1h]))
+  - record: node:fan_on_seconds:per_hour
+    expr: sum by (instance, fan) (increase(mynebula_fan_on_seconds_total[1h]))
