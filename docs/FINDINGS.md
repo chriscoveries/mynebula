@@ -26,6 +26,7 @@ Updated 2026-11-23 17:00Z; the loop updates this when a headline figure changes.
   - The timer has not yet been through a reboot.
 - **Clocks under the cap:** 1–2 busy threads ~3.7 GHz, unaffected; all-core ~2.8 GHz at 29 W [M]. Roughly 15–20 % slower than at 45 W [E].
 - **Draw:** platform (psys, as firmware reports it) ~5 W idle, 26 W with CI busy; CPU ~3 W idle [M]. Wall power not measured.
+- **Fans:** Dell firmware profile `quiet` (owner's choice): 0 rpm at idle, 74 °C under light load. `cool` ran 3800 rpm for only 2 °C less. Manual PWM is exposed but not used (unsafe unattended) [M].
 - **Monitoring:** CPU package, psys and temperatures go to Prometheus on webclip; Beszel covers the physical hosts [M].
 
 ## Memory ("Firecracker features" on KVM)
@@ -62,7 +63,7 @@ Updated 2026-11-23 17:00Z; the loop updates this when a headline figure changes.
   - In a guest the GPU likely reaches only D3hot [S].
 - **Recommended shape:** a small on-demand inference VM serving an API, off when idle, so the GPU returns to D3cold [S].
   - It needs a wake proxy (not built).
-  - A VM holding the GPU **cannot be suspended** (QEMU vfio migration blocker; libvirt hostdev; OpenNebula `save` = `virsh save`) [S]. So idle = **poweroff**, with a cold start of ~30–60 s (boot ~20–30 s + 7B model load ~5–15 s) [E].
+  - A VM holding the GPU **cannot be suspended** (QEMU vfio migration blocker; libvirt hostdev; OpenNebula `save` = `virsh save`) [S]. So idle = **poweroff**. Cold start measured on CPU (no GPU), 8 GB UEFI 26.04 VM, qwen2.5:7b Q4: RUNNING 8.3 s, SSH 25.7 s, Ollama API 30.6 s, **first answer 44.0 s** (model load 6.1 s) [M, one run]. With the GPU expect ~40–55 s [E]. The owner accepts 30–60 s.
   - Untested idea: guest-initiated suspend-to-RAM might let the GPU drop to a low-power state without OpenNebula involvement.
   - The GPU-in-LXC-host alternative would keep the GPU awake [S].
 

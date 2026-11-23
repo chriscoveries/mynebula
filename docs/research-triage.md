@@ -150,3 +150,9 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 |---|---|---|
 | `onevm suspend` fails for a VM with a vfio GPU: QEMU migration blocker + libvirt hostdev migration check; OpenNebula `kvm/save` is plain `virsh save` with no PCI pre-check | VERIFIED (source) | The idle state for the inference VM is poweroff. Cold start ~30–60 s [E]. Runtime confirmation on site |
 | Guest-initiated S3 may let the passed-through GPU reach a low-power state | OPEN | One on-site test: host `power_state` of 01:00.0 while the guest is suspended |
+
+## Inference VM cold start (tested 2026-11-23 17:14Z, CPU only)
+| Claim | Status | Evidence / action |
+|---|---|---|
+| Poweroff idle gives a 30–60 s cold start | MEASURED | 8 GB / 4 vCPU UEFI 26.04 VM, Ollama + qwen2.5:7b Q4 on the node data DS: resume from POWEROFF -> RUNNING 8.3 s, SSH 25.7 s, API 30.6 s, first answer 44.0 s (load 6.1 s, prompt 2.1 s). One run; GPU adds driver init and speeds up the prompt. Owner accepts 30–60 s |
+| soft-RoCE recipe; zstd import via HTTP from the bridge host (fs/cp: downloader runs on the frontend, streams to the bridge, a qcow2 source isn't re-converted) | VERIFIED (source) / OPEN (runtime) | Next tests |

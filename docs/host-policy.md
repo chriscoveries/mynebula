@@ -9,7 +9,7 @@ Owner decisions, 2026-11-23. `scripts/apply-host-policy.sh` applies them and is 
 - **Servers and desktops** (no battery): no cap. Set `CPU_CAP_W` explicitly if wanted.
 - **Laptops also get:**
   - charge held at 75–80 %;
-  - Wi-Fi power save off and the balanced platform profile;
+  - Wi-Fi power save off and the Dell **quiet** platform profile (owner 2026-11-23: fans stay at 0 rpm at idle; `cool` ran fans at 3800 rpm for 2 °C less; the 30 W cap bounds heat);
   - logind ignores the lid and sleep targets are masked;
   - shutdown below 10 % battery.
 - RAPL `energy_uj` is made world-readable (udev) so the Prometheus node exporter can report watts.

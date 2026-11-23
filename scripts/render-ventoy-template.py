@@ -81,7 +81,7 @@ WantedBy=timers.target
 """
 # Boot-time power tuning for a laptop hypervisor. Each step is skipped (and logged) if the hardware lacks it.
 POWER_TUNE = """#!/bin/sh
-# mynebula: battery charge 75-80%, Wi-Fi power save off, Bluetooth off, balanced platform profile.
+# mynebula: battery charge 75-80%, Wi-Fi power save off, Bluetooth off, quiet platform profile (owner 2026-11-23: fans stay off at idle).
 log() { logger -t mynebula-power "$*"; echo "$*"; }
 for b in /sys/class/power_supply/BAT*; do
   [ -d "$b" ] || continue
@@ -99,8 +99,8 @@ for w in /sys/class/net/wl*; do
   iw dev "$(basename $w)" set power_save off 2>/dev/null && log "$(basename $w): Wi-Fi power save off"
 done
 rfkill block bluetooth 2>/dev/null && log "bluetooth blocked"
-if [ -w /sys/firmware/acpi/platform_profile ] && grep -qw balanced /sys/firmware/acpi/platform_profile_choices 2>/dev/null; then
-  echo balanced > /sys/firmware/acpi/platform_profile && log "platform profile balanced"
+if [ -w /sys/firmware/acpi/platform_profile ] && grep -qw quiet /sys/firmware/acpi/platform_profile_choices 2>/dev/null; then
+  echo quiet > /sys/firmware/acpi/platform_profile && log "platform profile quiet"
 fi
 exit 0
 """
