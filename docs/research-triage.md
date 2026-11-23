@@ -171,3 +171,13 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 | Restricted OpenNebula user | MEASURED (partial) | Denied: `onevm show 8`, template USE/CREATE, MANAGE on a second throwaway VM; positive control OK. NOT tested: `onevm create` (VM CREATE). New groups get default ACL rows: delete them |
 | Failure paths | MEASURED | SIGKILL orphans the tunnel and leaves the VM running; `systemctl stop` leaves the VM running. Graduation needs ExecStopPost poweroff + an independent reaper |
 | Cleanup | VERIFIED by firesystems | ACL back to original rows 0-5; no test user/group/template/listener/process; node authorized_keys clean; VMs 8/5 have no new history; VM 19 terminated |
+
+## CPU cap with thermald (tests A-E, 2026-11-23 18:40-19:24Z; advisor-validated)
+| Claim | Status | Evidence / action |
+|---|---|---|
+| thermald (--adaptive) is the only writer of the MMIO PL1 (48-75 W) and sets MSR to 200 W at its start | VERIFIED | No RAPL changes while thermald was stopped (18:20-18:22Z) |
+| Our timer / the SMM pollers cause the fan pulsing | REFUTED | Fan behaviour unchanged with the timer stopped (B) and pollers stopped (C) |
+| The MSR limit alone holds the cap | VERIFIED | E1 (thermald owns MMIO) 29.97 W vs E2 (both pinned) 29.95 W mean over burst s5-20, energy-delta method. Cap script: MSR only, OnCalendar watchdog, stale-state guard |
+| Make thermald the single writer (static thermal-conf.xml) | CLOSED, not needed | |
+| `balanced` cooler than `quiet` | REFUTED | Both ~82 C avg under CI load; both hit 100 C and throttle in bursts; balanced holds ~2300 rpm |
+| Quiet cap (owner goal: quieter) | IN PROGRESS | Sweep: bursty and saturated loads, cap 25/20/15 W, turbo on/off, 15-min soak |

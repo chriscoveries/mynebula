@@ -12,7 +12,7 @@ if [ -n "${CPU_CAP_W:-}" ]; then
 #!/bin/sh
 # Re-applied by timer: thermald/firmware rewrite RAPL limits after boot. Logs only on drift.
 W=${CPU_CAP_W:-30}; U=$((W*1000000))
-for z in /sys/class/powercap/intel-rapl:0 /sys/class/powercap/intel-rapl-mmio:0; do
+for z in /sys/class/powercap/intel-rapl:0; do
   [ -w $z/constraint_0_power_limit_uw ] || continue
   for c in 0 1; do
     cur=$(cat $z/constraint_${c}_power_limit_uw)
@@ -25,8 +25,16 @@ done
 S
   chmod 0755 /usr/local/sbin/mynebula-cpu-cap
   printf '[Unit]\nDescription=MyNebula CPU package power cap (RAPL)\nAfter=thermald.service\n[Service]\nType=oneshot\nEnvironment=CPU_CAP_W=%s\nExecStart=/usr/local/sbin/mynebula-cpu-cap\n' "$CPU_CAP_W" > /etc/systemd/system/mynebula-cpu-cap.service
-  printf '[Unit]\nDescription=Re-apply MyNebula CPU power cap every minute\n[Timer]\nOnBootSec=20s\nOnUnitActiveSec=60s\nAccuracySec=5s\n[Install]\nWantedBy=timers.target\n' > /etc/systemd/system/mynebula-cpu-cap.timer
-  systemctl daemon-reload; systemctl enable --now mynebula-cpu-cap.timer
+  printf '[Unit]\nDescription=Re-apply MyNebula CPU power cap every minute\n[Timer]\nOnBootSec=20s\nOnCalendar=*:*:00\nAccuracySec=5s\n[Install]\nWantedBy=timers.target\n' > /etc/systemd/system/mynebula-cpu-cap.timer
+  systemctl daemon-reload
+  systemctl stop mynebula-cpu-cap.service 2>/dev/null || true
+  systemctl enable --now mynebula-cpu-cap.timer
+  TIMERS=$(systemctl list-timers mynebula-cpu-cap.timer --no-pager 2>&1 || true)
+  printf '%s\n' "$TIMERS"
+  if ! printf '%s\n' "$TIMERS" | awk '$0 ~ /mynebula-cpu-cap\.timer/ && $1 !~ /^[-]+$/ && $1 != "n/a" {ok=1} END{exit !ok}'; then
+    echo "apply-host-policy: mynebula-cpu-cap.timer has no NEXT" >&2
+    exit 1
+  fi
   log "CPU cap ${CPU_CAP_W} W (timer)"
 else
   log "no battery and CPU_CAP_W unset: no CPU cap"

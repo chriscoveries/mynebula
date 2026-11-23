@@ -24,7 +24,8 @@ Updated 2026-11-23 17:00Z; the loop updates this when a headline figure changes.
 - **Cap:** CPU package capped at 30 W, laptops only [M].
   - Firmware rewrites the limits: 200 W / 75 W after boot, and the MMIO limit again (66–75 W) after a platform-profile change [M]. A 1-minute timer re-applies 30 W; it silently stopped firing for 2.7 h on 23 Nov (stale unit state) and was fixed. What does the rewriting is under investigation.
   - The timer has not yet been through a reboot.
-- **Does the cap bind with thermald moving the MMIO limit?** Unproven: steady-state readings topped out at 31.6–32.3 W; one all-core burst averaged ~33 W at 100 °C (noisy sampler). A clean A/B test is pending [M].
+- **The cap binds through the MSR limit alone** [M]: all-core burst mean over seconds 5–20 was 29.97 W with thermald moving the MMIO limit (48–75 W), vs 29.95 W with both pinned at 30 W. So the cap script writes only `intel-rapl:0`, on an `OnCalendar` 1-minute watchdog; the MMIO limit is left to thermald. D1's 40 W peak was a sampler artifact.
+- **Temperature spikes, not average heat:** the package temperature swings ~65↔100 °C within seconds even at 10–15 W, and hits 100 °C at 30 W even with fans on `cool` [M]. This pattern is often a sign of poor heatsink contact; only opening the laptop would tell [E].
 - **Clocks under the cap:** 1–2 busy threads ~3.7 GHz, unaffected; all-core ~2.8 GHz at 29 W [M]. Roughly 15–20 % slower than at 45 W [E].
 - **Draw:** platform (psys, as firmware reports it) ~5 W idle, 26 W with CI busy; CPU ~3 W idle [M]. Wall power not measured.
 - **Fans:** Dell firmware profile `quiet` (owner's choice) [M]:
