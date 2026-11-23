@@ -34,6 +34,7 @@ Updated 2026-11-23 19:45Z; the loop updates this when a headline figure changes.
   - `cool` runs ~3,800 rpm.
   - Nothing in Linux writes the fans; the firmware cycles them. thermald (`--adaptive`) is the only writer of the MMIO power limit.
   - Manual PWM is exposed but not used (unsafe unattended).
+- **Quiet setup (adopted 23 Nov):** `quiet` + turbo off + 20 W cap + KSM slowed + EPP balance_power. Silent at idle; under saturated load the fans run ~73 % of the time at 20 W (25 W: 94 %, 15 W: 55 %, 12 W: 0 % for 4 min at ~40 % less CPU) [M, one pass]. Table in research-triage.md.
 - **Monitoring:** CPU package, psys and temperatures go to Prometheus on webclip; Beszel covers the physical hosts [M].
 
 ## Memory ("Firecracker features" on KVM)

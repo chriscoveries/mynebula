@@ -186,3 +186,22 @@ Status: **DONE** (applied and verified) · **VERIFIED** (true, not yet applied) 
 | Claim | Status | Evidence / action |
 |---|---|---|
 | Recording rule `node:fan_starts:per_hour` (monitoring/fan-rules.yml) counts fan starts | LOWER BOUND only | 1-min sampling of 15 s scrapes misses sub-minute pulsing: in test A's window, 1 real start in the 1 Hz log, 0 by the rule's method. Not proof of "quieter". An exact counter (node-side 2 s poller -> textfile counters `fan_starts_total` + `fan_on_seconds_total`, `increase()`) is planned after the sweep. Re-running patch_datasources.rb drops the rule_files line |
+
+## Quiet-cap sweep (sys-devin-rt 19:30-20:27Z; one pass, steps back to back; advisor-validated)
+All steps: `quiet` profile, cap on MSR only, thermald owns MMIO. fan-on = share of 1 Hz samples with rpm > 0.
+
+| step | load | cap W | turbo | KSM | EPP | fan-on | off->on | hot max/avg C | mean W | all-core/1T GHz |
+|---|---|---|---|---|---|---|---|---|---|---|
+| F1 | bursty 4t 5s/5s | 30 | on | normal | bal_perf | 100% | 0 | 100/96.0 | ~23.7 | 3.39/n.a. (partial window) |
+| F2 | bursty | 30 | off | normal | bal_perf | 100% | 0 | 99/88.2 | 18.7 | 2.51/2.60 |
+| F3 | bursty | 30 | off | slowed | bal_perf | 53% | 3 | 98/86.7 | 17.1 | 2.50/2.60 |
+| F4 | bursty | 30 | off | normal | bal_power | 52% | 1 | 99/85.2 | 16.2 | 2.48/2.60 |
+| F5 | saturated 12t | 25 | off | normal | bal_perf | 94% | 1 | 98/96.1 | 25.0 | 2.54/2.60 |
+| F6 | saturated | 20 | off | normal | bal_perf | 73% | 1 | 91/89.2 | 20.0 | 2.21/2.60 |
+| F7 | saturated | 15 | off | normal | bal_perf | 55% | 1 | 83/80.6 | 15.0 | 1.83/2.57 |
+| F8 | saturated | 12 | off | normal | bal_perf | 0% | 0 | 76/72.8 | 12.0 | 1.38/1.80 |
+
+- **ADOPTED for nebula-7550** (owner: "just a good setup"): quiet profile + turbo off + **20 W cap** (highest step clear of 100 C at full load) + KSM slowed + EPP balance_power.
+- **Directional only:** F2-F4 ran back to back while the chassis was cooling, so part of the KSM/EPP improvement may be order effects.
+- **Fully silent option (not adopted):** 12 W gave 0 % fan-on for 4 min saturated. It costs ~40 % CPU vs 20 W (1T limited to 1.8 GHz) and is unproven beyond 4 min (76 C peak is a few C under where the fans started at 15 W).
+- **Correction:** earlier figures for 15/20/25 W (43/64/70 %) came from a rough parse including settle time; use this table.
