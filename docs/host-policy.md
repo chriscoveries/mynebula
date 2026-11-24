@@ -48,7 +48,8 @@ Owner decisions, 2026-11-23. `scripts/apply-host-policy.sh` applies them and is 
 
 ## Containers
 - **LXC is preferred** for trusted Linux services.
-- **Owner rule (2026-11-24): no strangers' code in LXC.** Containers share the host kernel, so anything that builds or runs untrusted code (CI runners, user uploads, internet-facing risky services) goes in a KVM VM. KVM is also used for hardware passthrough (GPU), non-Linux or different-kernel guests, and whole-VM suspend/power-off.
+- **Owner rule (2026-11-24): no strangers' code in LXC.** Containers share the host kernel, so genuinely untrusted code (CI runners building outside code, internet-facing risky services) goes in a KVM VM. KVM is also used for hardware passthrough (GPU), non-Linux or different-kernel guests, and whole-VM suspend/power-off.
+- **Per-tenant work for non-hostile tenants goes in LXC** (owner, 2026-11-24), e.g. one unprivileged container per CCCC working group writing for different people. The threat is accidental cross-access, not attack; a container per tenant is firmer isolation than separate Linux users (own filesystem, processes, network, limits). Side channels (Spectre-class) cross containers and VMs alike; they are handled by CPU mitigations and microcode, not by the choice of LXC or KVM.
 - **Constraint:** `opennebula-node-lxc` conflicts with `opennebula-node-kvm`, so LXC runs in an OpenNebula-managed **LXC host VM** on KVM nodes, in its own cluster. See docs/lxc-host-vm.md.
 - **Container defaults:** unprivileged (`LXC_UNPRIVILEGED="yes"`, overriding the marketplace's "false"), `AUTOSTART=YES`, and lxc-net DHCP kept below the OpenNebula address range.
 
